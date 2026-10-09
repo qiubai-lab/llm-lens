@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f7f8fa" />
+    <meta
+      name="description"
+      content="用可以触摸的动画，理解大语言模型。从一个词的生成开始，亲手探索 Temperature、Top-k 和 Top-p。"
+    />
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
+    <title>LLM Lens · 看见语言模型如何生成</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript
+      >LLM Lens 是交互动画演示，需要启用 JavaScript。模型基于上下文预测下一个 token，选出的 token
+      加入上下文，再重复生成。本演示按词简化展示。</noscript
+    >
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
