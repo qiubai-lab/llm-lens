@@ -14,7 +14,9 @@
 - `index.html` / `src/main.tsx`：浏览器入口及根组合。
 - `src/app/App.tsx`：网站外壳、主题挂载与浮层。
 - `src/app/FocusToolbar.tsx`：专注页工具栏、显示设置与浏览器全屏。
-- `src/app/route.ts`：hash 路由契约。
+- `src/app/route.ts`：首页、Token 与 Agent 的 hash 路由契约。
+- `src/features/agent-conversation/AgentDeck.tsx`：Agent 六幕组合与教学播放入口。
+- `src/core/agent-conversation/flow.ts`：纯事件归并与历史重建，不执行工具。
 - `src/core/sampling.ts`：候选、参数、分布与抽样契约。
 - `src/features/token/ContextSentence.tsx`：上下文展示与教学分支换行占位。
 - `docs/qb-spec/context/UI_STYLE_SPEC.md`：动态布局、可读字体尺度与验证规范。
@@ -28,6 +30,8 @@
 
 - `src/app/` 负责首页与专注页导航、全站浮层；不实现采样规则。
 - `src/features/token/` 负责 Token 场景组合、局部状态、舞台对比与响应式操作区；不承载其他主题。
+- `src/features/agent-conversation/` 负责 Agent 对话、文件预览、通信详情与播放定时器；不负责协议事实或真实执行。
+- `src/core/agent-conversation/` 负责预设文件/事件、调用参数校验及纯状态重建；不读取真实文件或网络。
 - `src/core/` 负责纯计算与预设数据；不控制视图和时间。
 - `src/components/` 负责复用的 UI 和动效偏好；不拥有主题状态。
 - `src/styles/` 负责设计变量、网站外壳和演示样式；不通过样式隐藏业务状态。

@@ -11,10 +11,10 @@ import {
   Zap,
   ZapOff,
 } from 'lucide-react';
-import { topic } from '../core/lesson';
 
 export function FocusToolbar({
   scene,
+  topic,
   onDirectory,
   settingsOpen,
   onSettingsChange,
@@ -23,6 +23,7 @@ export function FocusToolbar({
   onReducedChange,
 }: {
   scene: number;
+  topic: { id: string; title: string; scenes: readonly unknown[] };
   onDirectory: (trigger: HTMLElement) => void;
   settingsOpen: boolean;
   onSettingsChange: (open: boolean) => void;
@@ -58,7 +59,7 @@ export function FocusToolbar({
       <span className="toolbar-divider" />
       <div className="focus-topic">
         <span>
-          LLM LENS <i>/</i> TOKEN
+          LLM LENS <i>/</i> {topic.id.toUpperCase()}
         </span>
         <strong>{topic.title}</strong>
       </div>
@@ -70,7 +71,9 @@ export function FocusToolbar({
         >
           <List size={18} />
           <span>目录</span>
-          <small>{scene + 1}/6</small>
+          <small>
+            {scene + 1}/{topic.scenes.length}
+          </small>
         </button>
         <button
           className="icon-button fullscreen-button"
@@ -115,7 +118,7 @@ export function FocusToolbar({
                 {reduced && <Check size={16} />}
               </button>
               <p>← → 切换场景 · 悬停或点按概念查看解释</p>
-              <span>教学模拟 · 按词简化展示</span>
+              <span>教学模拟 · {topic.id === 'token' ? '按词简化展示' : '预设事件回放'}</span>
               <Popover.Arrow />
             </Popover.Content>
           </Popover.Portal>

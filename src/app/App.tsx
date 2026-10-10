@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { MotionConfig } from 'motion/react';
@@ -19,10 +19,19 @@ import { FocusToolbar } from './FocusToolbar';
 import { Home } from './Home';
 import { parseRoute, sceneHref } from './route';
 import { topic } from '../core/lesson';
-import { TokenDeck } from '../features/token/TokenDeck';
+const TokenDeck = lazy(() =>
+  import('../features/token/TokenDeck').then((module) => ({ default: module.TokenDeck })),
+);
+const AgentDeck = lazy(() =>
+  import('../features/agent-conversation/AgentDeck').then((module) => ({
+    default: module.AgentDeck,
+  })),
+);
+import { agentTopic } from '../core/agent-conversation/fixtures';
 
 export function App() {
   const [route, setRoute] = useState(() => parseRoute(location.hash));
+  const activeTopic = route.page === 'agent' ? agentTopic : topic;
   const [about, setAbout] = useState(false);
   const aboutTrigger = useRef<HTMLElement | null>(null);
   const openAbout = (trigger: HTMLElement) => {
@@ -55,7 +64,7 @@ export function App() {
   useEffect(() => {
     if (route.page === 'home' && document.fullscreenElement)
       void document.exitFullscreen().catch(() => {});
-    document.title = `${route.page === 'home' ? '看见语言模型如何生成' : topic.scenes[route.scene].short} · LLM Lens`;
+    document.title = `${route.page === 'home' ? '看见语言模型如何生成' : activeTopic.scenes[route.scene].short} · LLM Lens`;
   }, [route]);
   return (
     <ReducedMotionContext.Provider value={reduceMotion}>
@@ -76,7 +85,7 @@ export function App() {
           >
             跳至主要内容
           </a>
-          <div className={route.page === 'token' ? 'focus-shell' : 'home-shell'}>
+          <div className={route.page !== 'home' ? 'focus-shell' : 'home-shell'}>
             {route.page === 'home' ? (
               <header className="site-header">
                 <a className="brand" href="#/" aria-label="LLM Lens 首页">
@@ -110,6 +119,7 @@ export function App() {
               </header>
             ) : (
               <FocusToolbar
+                topic={activeTopic}
                 scene={route.scene}
                 onDirectory={openDirectory}
                 settingsOpen={settingsOpen}
@@ -121,8 +131,30 @@ export function App() {
             )}
             {route.page === 'home' ? (
               <Home onAbout={openAbout} />
+            ) : route.page === 'agent' ? (
+              <Suspense
+                fallback={
+                  <main className="deck-page" id="main-content">
+                    <p role="status">正在打开 Agent 演示…</p>
+                  </main>
+                }
+              >
+                <AgentDeck
+                  key={route.scene}
+                  scene={route.scene}
+                  suspended={directory || settingsOpen || about}
+                />
+              </Suspense>
             ) : (
-              <TokenDeck scene={route.scene} suspended={directory || settingsOpen || about} />
+              <Suspense
+                fallback={
+                  <main className="deck-page" id="main-content">
+                    <p role="status">正在打开 Token 演示…</p>
+                  </main>
+                }
+              >
+                <TokenDeck scene={route.scene} suspended={directory || settingsOpen || about} />
+              </Suspense>
             )}
           </div>
           <Dialog.Root open={directory} onOpenChange={setDirectory}>
@@ -165,31 +197,37 @@ export function App() {
                 <a className="directory-home" href="#/" onClick={() => setDirectory(false)}>
                   <Layers size={17} /> 返回首页 <ArrowUpRight size={16} />
                 </a>
-                <div className="directory-topic">
-                  <BookOpen size={18} />
-                  <div>
-                    <strong>{topic.title}</strong>
-                    <span>
-                      {topic.subtitle} · {topic.duration}
-                    </span>
+                {[topic, agentTopic].map((entry) => (
+                  <div key={entry.id}>
+                    <div className="directory-topic">
+                      <BookOpen size={18} />
+                      <div>
+                        <strong>{entry.title}</strong>
+                        <span>
+                          {entry.subtitle} · {entry.duration}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="directory-scenes">
+                      {entry.scenes.map((s, i) => (
+                        <a
+                          href={sceneHref(i, entry.id as 'token' | 'agent')}
+                          onClick={() => setDirectory(false)}
+                          key={s.short}
+                          aria-current={
+                            route.page === entry.id && route.page !== 'home' && route.scene === i
+                              ? 'page'
+                              : undefined
+                          }
+                        >
+                          <span>{String(i + 1).padStart(2, '0')}</span>
+                          <strong>{s.short}</strong>
+                          <ChevronRight size={16} />
+                        </a>
+                      ))}
+                    </div>
                   </div>
-                </div>
-                <div className="directory-scenes">
-                  {topic.scenes.map((s, i) => (
-                    <a
-                      href={sceneHref(i)}
-                      onClick={() => setDirectory(false)}
-                      key={s.short}
-                      aria-current={
-                        route.page === 'token' && route.scene === i ? 'page' : undefined
-                      }
-                    >
-                      <span>{String(i + 1).padStart(2, '0')}</span>
-                      <strong>{s.short}</strong>
-                      <ChevronRight size={16} />
-                    </a>
-                  ))}
-                </div>
+                ))}
                 <p className="directory-tip">
                   <Command size={14} /> 演示中可使用 ← → 切换场景
                 </p>
