@@ -13,6 +13,25 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  /* Font scale: metadata 12px, annotations 13px, controls 14px, copy 15px. */
+  --font-size-meta: 0.75rem;
+  --font-size-caption: 0.8125rem;
+  --font-size-control: 0.875rem;
+  --font-size-copy: 0.9375rem;
+  --font-size-candidate: 1rem;
+  --font-size-word: 1.5rem;
+  --font-size-context: clamp(1.25rem, 1.5vw, 1.5rem);
+  --font-size-intro-word: 2rem;
+  --font-size-lesson-title: clamp(1.5rem, 2.1vw, 2rem);
+  --font-size-section-title: 1.5rem;
+  --font-size-subtitle: 1.25rem;
+  --font-size-brand: 1.375rem;
+  --font-size-dialog-title: 1.875rem;
+  --font-size-hero: clamp(2.375rem, 3.5vw, 3.375rem);
+  --font-size-preview-word: 1.25rem;
+  --font-size-result: 1.25rem;
+  --line-height-copy: 1.8;
+  --line-height-ui: 1.5;
   --paper: #fff;
   --ink: #202836;
   --muted: #7c8493;
@@ -93,9 +112,9 @@ svg {
   gap: 9px;
   border-radius: 9px;
   padding: 11px 17px;
-  font-size: 13px;
+  font-size: var(--font-size-control);
   font-weight: 550;
-  line-height: 1.5;
+  line-height: var(--line-height-ui);
   border: 1px solid transparent;
   transition:
     background 0.18s,
@@ -133,7 +152,7 @@ svg {
 }
 .button.large {
   padding: 15px 24px;
-  font-size: 15px;
+  font-size: var(--font-size-copy);
   border-radius: 10px;
 }
 .icon-button {
@@ -154,13 +173,13 @@ svg {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 11px;
+  font-size: var(--font-size-meta);
   letter-spacing: 1.5px;
   font-weight: 550;
   color: var(--blue);
 }
 .tiny-label {
-  font-size: 10px;
+  font-size: var(--font-size-meta);
   letter-spacing: 1.2px;
   color: var(--muted);
 }
@@ -197,15 +216,15 @@ svg {
   color: #e6ebf4;
   border-radius: 12px;
   padding: 15px 17px;
-  font-size: 12px;
-  line-height: 1.85;
+  font-size: var(--font-size-copy);
+  line-height: var(--line-height-copy);
   box-shadow: 0 10px 35px #18243e30;
   z-index: 90;
   animation: float-in 0.16s ease-out;
 }
 .concept-bubble strong {
   color: #fff;
-  font-size: 13px;
+  font-size: var(--font-size-copy);
   display: block;
   margin-bottom: 4px;
 }
@@ -222,7 +241,7 @@ svg {
   border-radius: 9px;
   background: var(--blue-soft);
   color: #4f659d;
-  font-size: 23px;
+  font-size: var(--font-size-word);
   letter-spacing: 1px;
   font-weight: 500;
 }
@@ -262,4 +281,19 @@ html[data-reduced-motion='true'] *::after {
   animation-duration: 0.01ms !important;
   transition-duration: 0.01ms !important;
   scroll-behavior: auto !important;
+}
+
+@media (max-width: 760px) {
+  :root {
+    --font-size-context: 1.125rem;
+    --font-size-intro-word: 1.5rem;
+    --font-size-lesson-title: 1.5rem;
+    --font-size-hero: clamp(2.1875rem, 6.5vw, 2.875rem);
+  }
+}
+@media (max-width: 380px) {
+  :root {
+    --font-size-intro-word: 1.25rem;
+    --font-size-lesson-title: 1.375rem;
+  }
 }

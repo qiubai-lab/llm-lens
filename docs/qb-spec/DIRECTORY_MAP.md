@@ -15,6 +15,9 @@
 - `src/app/FocusToolbar.tsx`：专注页工具栏、显示设置与浏览器全屏。
 - `src/app/route.ts`：hash 路由契约。
 - `src/core/sampling.ts`：候选、参数、分布与抽样契约。
+- `src/features/token/ContextSentence.tsx`：上下文展示与教学分支换行占位。
+- `docs/qb-spec/context/UI_STYLE_SPEC.md`：动态布局、可读字体尺度与验证规范。
+- `src/styles/tokens.css`：颜色、字号语义尺度与共享组件基础样式。
 - `src/core/lesson.ts`：Token 主题与场景元数据、教学分支。
 - `vite.config.ts`：静态部署 base。
 

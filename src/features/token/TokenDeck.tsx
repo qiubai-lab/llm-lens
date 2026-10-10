@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
-import { LayoutGroup, motion } from 'motion/react';
+import { LayoutGroup } from 'motion/react';
 import {
   ArrowDown,
-  ArrowLeft,
   ArrowRight,
-  Check,
   ChevronLeft,
   ChevronRight,
   GitBranch,
@@ -13,7 +11,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { Concept, definitions } from '../../components/Concept';
-import { Token } from '../../components/Token';
+import { ContextSentence } from './ContextSentence';
 import { examples, scenes, type ExampleId } from '../../core/lesson';
 import { defaults, type Parameters } from '../../core/sampling';
 import { parseRoute, sceneHref } from '../../app/route';
@@ -37,7 +35,6 @@ export function TokenDeck({ scene, suspended = false }: { scene: number; suspend
     if (suspended) gen.setPlaying(false);
   }, [suspended, gen.setPlaying]);
   const current = scenes[scene];
-  const start = examples.find((e) => e.id === example)!;
   const layoutPrefix = `deck-${example}-${gen.words.length}`;
   useEffect(() => {
     setCompare(false);
@@ -84,7 +81,21 @@ export function TokenDeck({ scene, suspended = false }: { scene: number; suspend
             {current.kicker}
             <span>{String(scene + 1).padStart(2, '0')} / 06</span>
           </div>
-          <h1>{current.title}</h1>
+          <div className="deck-title-row">
+            <h1>{current.title}</h1>
+            <button
+              className="title-replay"
+              onClick={() => {
+                gen.reset();
+                setSplit(true);
+                setComparisonRound(0);
+              }}
+              aria-label="重播当前幕"
+              title="重播当前幕"
+            >
+              <RotateCcw size={16} />
+            </button>
+          </div>
           <p>
             {current.description}{' '}
             <Concept title="本幕要点" compact>
@@ -130,27 +141,13 @@ export function TokenDeck({ scene, suspended = false }: { scene: number; suspend
                 {gen.words.length ? `已生成 ${gen.words.length} 个片段` : '一切从这里开始'}
               </span>
             </div>
-            <motion.div layout className="sentence" aria-label="当前上下文">
-              {scene === 0 && !split ? (
-                <motion.span className="unsplit-sentence">{start.tokens.join('')}</motion.span>
-              ) : (
-                start.tokens.map((word, i) => (
-                  <Token key={`${example}-${i}`} word={word} id={`context-${example}-${i}`} />
-                ))
-              )}
-              {gen.words.map((word, i) => (
-                <Token key={`${i}-${word}`} word={word} fresh id={`deck-${example}-${i}-${word}`} />
-              ))}
-              {gen.ended ? (
-                <span className="end-chip">
-                  <Check size={16} /> 生成结束
-                </span>
-              ) : (
-                <motion.span layout className="token empty-token">
-                  {scene === 0 ? '?' : <span className="insertion-caret" />}
-                </motion.span>
-              )}
-            </motion.div>
+            <ContextSentence
+              example={example}
+              scene={scene}
+              split={split}
+              words={gen.words}
+              ended={gen.ended}
+            />
             {compare ? (
               <ParameterComparison
                 example={example}
@@ -183,7 +180,10 @@ export function TokenDeck({ scene, suspended = false }: { scene: number; suspend
                   <ArrowRight size={18} />
                   <span className="tiny-label">下一个 Token</span>
                 </div>
-                <button className="button secondary" onClick={() => setSplit((s) => !s)}>
+                <button
+                  className="button secondary split-toggle"
+                  onClick={() => setSplit((s) => !s)}
+                >
                   <GitBranch size={16} />
                   {split ? '合回句子，再看一次' : '拆成词，看看里面'}
                 </button>
@@ -245,9 +245,10 @@ export function TokenDeck({ scene, suspended = false }: { scene: number; suspend
                     gen.setPlaying(false);
                   }}
                   aria-expanded={compare}
+                  aria-label={compare ? '收起参数对比' : '对比两组参数'}
                 >
                   <GitBranch size={17} />
-                  {compare ? '收起参数对比' : '同一随机数，比较两组参数'}
+                  {compare ? '收起参数对比' : '对比两组参数'}
                   <ArrowRight size={15} />
                 </button>
               )}
@@ -268,7 +269,10 @@ export function TokenDeck({ scene, suspended = false }: { scene: number; suspend
         </span>
       </div>
       <footer className="deck-navigation">
-        <a className="button text-button" href={scene === 0 ? '#/' : sceneHref(scene - 1)}>
+        <a
+          className="button text-button deck-nav-link"
+          href={scene === 0 ? '#/' : sceneHref(scene - 1)}
+        >
           <ChevronLeft size={17} />
           {scene === 0 ? '首页' : '上一幕'}
         </a>
@@ -286,23 +290,13 @@ export function TokenDeck({ scene, suspended = false }: { scene: number; suspend
           ))}
           <span>{String(scene + 1).padStart(2, '0')} / 06</span>
         </div>
-        <div className="nav-end">
-          <button
-            className="icon-button"
-            onClick={() => {
-              gen.reset();
-              setSplit(true);
-              setComparisonRound(0);
-            }}
-            aria-label="重播当前幕"
-          >
-            <RotateCcw size={16} />
-          </button>
-          <a className="button nav-next" href={scene < 5 ? sceneHref(scene + 1) : '#/'}>
-            {scene < 5 ? '下一幕' : '回到首页'}
-            {scene < 5 ? <ChevronRight size={17} /> : <ArrowLeft size={17} />}
-          </a>
-        </div>
+        <a
+          className="button text-button deck-nav-link"
+          href={scene < 5 ? sceneHref(scene + 1) : '#/'}
+        >
+          {scene < 5 ? '下一幕' : '回到首页'}
+          <ChevronRight size={17} />
+        </a>
       </footer>
     </main>
   );

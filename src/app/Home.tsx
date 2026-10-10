@@ -116,20 +116,32 @@ export function Home({ onAbout }: { onAbout: (trigger: HTMLElement) => void }) {
                 </div>
               </div>
               <div className="preview-bottom">
-                <p role="status">
-                  {word ? (
-                    <>
-                      这次是「<strong>{word}</strong>」。
-                      <br />
-                      它将成为下一次预测的上下文。
-                    </>
-                  ) : (
-                    <>
-                      下一个词，还没有确定。
-                      <br />
-                      概率越大，被选中的机会越大。
-                    </>
-                  )}
+                <p className="preview-status" role="status">
+                  <span className="preview-status-reserve" aria-hidden="true">
+                    下一个词，还没有确定。
+                    <br />
+                    概率越大，被选中的机会越大。
+                  </span>
+                  <span className="preview-status-reserve" aria-hidden="true">
+                    这次是「湛蓝」。
+                    <br />
+                    它将成为下一次预测的上下文。
+                  </span>
+                  <span>
+                    {word ? (
+                      <>
+                        这次是「<strong>{word}</strong>」。
+                        <br />
+                        它将成为下一次预测的上下文。
+                      </>
+                    ) : (
+                      <>
+                        下一个词，还没有确定。
+                        <br />
+                        概率越大，被选中的机会越大。
+                      </>
+                    )}
+                  </span>
                 </p>
                 <button
                   className="button preview-generate"

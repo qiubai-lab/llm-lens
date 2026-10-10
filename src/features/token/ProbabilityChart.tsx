@@ -76,6 +76,16 @@ export function ProbabilityChart({
           )}
         </div>
       ))}
+      {Array.from({ length: Math.max(0, 6 - rows.length) }, (_, i) => (
+        <div
+          className="probability-row probability-reserve"
+          aria-hidden="true"
+          key={`reserve-${i}`}
+        >
+          <span className="candidate-index" />
+          <span className="candidate-word">候选</span>
+        </div>
+      ))}
     </div>
   );
 }

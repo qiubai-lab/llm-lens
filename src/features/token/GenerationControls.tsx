@@ -10,14 +10,18 @@ export function GenerationControls({
 }) {
   return (
     <div className="generation-actions">
-      <button className="button primary" onClick={gen.draw} disabled={gen.ended || gen.playing}>
+      <button
+        className="button primary draw-button"
+        onClick={gen.draw}
+        disabled={gen.ended || gen.playing}
+      >
         <Shuffle size={16} />
         {gen.selected ? '再抽一次' : '抽取下一个词'}
       </button>
       {scene === 5 && (
         <>
           <button
-            className="button secondary"
+            className="button secondary append-button"
             onClick={gen.append}
             disabled={!gen.selected || gen.playing || gen.ended}
           >
@@ -35,13 +39,20 @@ export function GenerationControls({
         </>
       )}
       <span className="generation-status" role="status">
-        {gen.ended
-          ? '遇到结束标记，本轮已完成。'
-          : gen.selected
-            ? `本次选中「${gen.selected === '<结束>' ? '结束标记' : gen.selected}」${scene === 5 ? '，等待接回上下文' : ''}`
-            : scene === 5
-              ? '先抽取，再追加；也可以播放完整过程'
-              : '保持上下文不变，试试重复抽样'}
+        <span className="generation-status-reserve" aria-hidden="true">
+          {scene === 5
+            ? '本次选中「忍不住再吃一口」，等待接回上下文'
+            : '保持上下文不变，试试重复抽样'}
+        </span>
+        <span>
+          {gen.ended
+            ? '遇到结束标记，本轮已完成。'
+            : gen.selected
+              ? `本次选中「${gen.selected === '<结束>' ? '结束标记' : gen.selected}」${scene === 5 ? '，等待接回上下文' : ''}`
+              : scene === 5
+                ? '先抽取，再追加；也可以播放完整过程'
+                : '保持上下文不变，试试重复抽样'}
+        </span>
       </span>
     </div>
   );
