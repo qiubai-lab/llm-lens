@@ -7,6 +7,7 @@
 - `scripts/`：静态产物验证；不含教学计算。
 - `.github/`：CI 与 Pages 发布流程。
 - `docs/qb-spec/`：规格、技术上下文及归档；不参与产品运行。
+- `docs/demos/`：各演示的权威来源调研、协议/数据样例与技术设计；不承载运行时代码或凭据。
 
 ## Important Files
 
@@ -17,6 +18,8 @@
 - `src/core/sampling.ts`：候选、参数、分布与抽样契约。
 - `src/features/token/ContextSentence.tsx`：上下文展示与教学分支换行占位。
 - `docs/qb-spec/context/UI_STYLE_SPEC.md`：动态布局、可读字体尺度与验证规范。
+- `docs/qb-spec/context/DEMO_DEVELOPMENT_SPEC.md`：新演示先调研落文档、再设计实现的工作流入口。
+- `docs/demos/_TEMPLATE.md`：主题技术调研与演示设计的起草模板。
 - `src/styles/tokens.css`：颜色、字号语义尺度与共享组件基础样式。
 - `src/core/lesson.ts`：Token 主题与场景元数据、教学分支。
 - `vite.config.ts`：静态部署 base。
@@ -35,3 +38,4 @@
 - `src/app/` 与 `src/components/` 不复制概率计算和主题分支规则。
 - `public/` 禁止私有数据或构建时密钥。
 - `dist/`、`node_modules/` 是生成内容，不作为源码事实源。
+- `docs/demos/` 禁止存放真实密钥；文档中的未实施方案不得描述为已有运行能力。

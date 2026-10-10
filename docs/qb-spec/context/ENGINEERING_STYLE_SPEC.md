@@ -3,6 +3,7 @@
 用户批准的重建技术方案：Vite、React、TypeScript、Motion、CSS 变量，Radix 基础交互组件。Node/npm 要求及命令以 `package.json`、`.nvmrc`、锁文件和 CI 为准。
 
 - TypeScript strict；类型检查独立于 Vite 构建。
+- 新演示及核心知识扩展必须遵守 [新演示开发流程](DEMO_DEVELOPMENT_SPEC.md)：先调研并在 `docs/demos/` 落地带来源、样例和边界的技术文档，再设计动画并通过编码前检查；实现与文档保持一致。
 - `npm ci` 复现依赖；`npm run verify` 作为交付入口。
 - 核心采样规则与教学分支测试就近维护，重点覆盖概率、筛选边界和生成结束。
 - 首页与主题共享词卡、解释气泡和设计变量；主题自行组织舞台布局。

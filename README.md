@@ -45,6 +45,12 @@ Vite + React + TypeScript + Motion；CSS 变量定义视觉；Radix Dialog / Pop
 
 新增主题时沿用外壳和视觉组件，在主题模块维护自己的场景和数据。不要将新主题写入 Token 采样计算中。当前路由明确支持首页与 Token 主题；新增主题时扩展路由解析及其测试。
 
+## 新演示开发
+
+遵循 [新演示开发流程](docs/qb-spec/context/DEMO_DEVELOPMENT_SPEC.md)：先调研权威技术资料并落地到 `docs/demos/<topic>/TECHNICAL_DESIGN.md`，再设计逐幕动画、交互与验收，通过编码前检查后实现。文档必须区分协议事实、教学简化、预设数据和未决问题；已有实现授权无需重复确认。
+
+起草使用 [技术文档模板](docs/demos/_TEMPLATE.md)。下一个主题已完成 [模型 API 调用技术调研与演示设计](docs/demos/model-api/TECHNICAL_DESIGN.md)，涵盖 Responses、Chat Completions、Anthropic Messages 的请求、响应、流式事件及上下文；目前尚未实现演示代码。
+
 ## 采样约定
 
 教学顺序：分数除以温度 → softmax → Top-k → 在剩余候选重新归一化后按 Top-p 累计筛选 → 最终归一化 → 抽样。包含跨过 Top-p 阈值的候选，始终至少保留一个候选。Top-k 为 0 表示不限制。界面温度范围 0.2–2；核心另支持零温最优选择。
