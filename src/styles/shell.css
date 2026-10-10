@@ -821,3 +821,12 @@
 .hero-actions {
   flex-wrap: wrap;
 }
+@media (max-width: 760px) {
+  .preview-bottom {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .preview-generate {
+    align-self: flex-end;
+  }
+}

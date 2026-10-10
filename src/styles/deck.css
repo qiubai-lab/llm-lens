@@ -427,8 +427,6 @@
 }
 .probability-row {
   display: grid;
-  grid-template-columns: 20px 108px minmax(20px, 1fr) 59px 18px;
-  gap: 11px;
   align-items: center;
   min-height: 34px;
   position: relative;
@@ -931,8 +929,6 @@
   font-size: var(--font-size-meta);
 }
 .comparison .probability-row {
-  grid-template-columns: 14px 77px minmax(12px, 1fr) 43px 15px;
-  gap: 6px;
   min-height: 30px;
 }
 .comparison .candidate-word {
@@ -996,8 +992,6 @@
     padding-right: 0;
   }
   .probability-row {
-    grid-template-columns: 18px 87px minmax(20px, 1fr) 51px 17px;
-    gap: 8px;
   }
   .comparison-grid {
     gap: 12px;
@@ -1006,8 +1000,6 @@
     padding: 10px;
   }
   .comparison .probability-row {
-    grid-template-columns: 12px 57px minmax(12px, 1fr) 37px 13px;
-    gap: 3px;
   }
 }
 @media (max-width: 760px) {
@@ -1164,9 +1156,7 @@
     gap: 5px;
   }
   .probability-row {
-    grid-template-columns: 14px 70px minmax(20px, 1fr) 44px 15px;
     min-height: 30px;
-    gap: 7px;
   }
   .candidate-word {
     font-size: var(--font-size-candidate);
@@ -1416,8 +1406,6 @@
     font-size: var(--font-size-meta);
   }
   .probability-row {
-    grid-template-columns: 12px 65px minmax(16px, 1fr) 42px 14px;
-    gap: 5px;
   }
   .deck-heading h1 {
     font-size: var(--font-size-lesson-title);
@@ -1851,5 +1839,19 @@
   .panel-note {
     margin-top: 18px;
     padding-top: 14px;
+  }
+}
+/* Larger annotations stay inside the bar column instead of covering percentages. */
+.exclusion,
+.selection-badge {
+  max-inline-size: calc(
+    100% - var(--index-column) - var(--candidate-column) - var(--value-column) - 18px - 4 *
+      var(--row-gap)
+  );
+  line-height: 1.2;
+}
+@media (min-width: 761px) and (max-width: 1050px) {
+  .comparison-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
