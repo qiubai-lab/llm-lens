@@ -12,6 +12,7 @@
 
 - `index.html` / `src/main.tsx`：浏览器入口及根组合。
 - `src/app/App.tsx`：网站外壳、主题挂载与浮层。
+- `src/app/FocusToolbar.tsx`：专注页工具栏、显示设置与浏览器全屏。
 - `src/app/route.ts`：hash 路由契约。
 - `src/core/sampling.ts`：候选、参数、分布与抽样契约。
 - `src/core/lesson.ts`：Token 主题与场景元数据、教学分支。
@@ -19,8 +20,8 @@
 
 ## Module Responsibilities
 
-- `src/app/` 负责网站导航和首页；不实现采样规则。
-- `src/features/token/` 负责 Token 场景组合、局部状态和可视化；不承载其他主题。
+- `src/app/` 负责首页与专注页导航、全站浮层；不实现采样规则。
+- `src/features/token/` 负责 Token 场景组合、局部状态、舞台对比与响应式操作区；不承载其他主题。
 - `src/core/` 负责纯计算与预设数据；不控制视图和时间。
 - `src/components/` 负责复用的 UI 和动效偏好；不拥有主题状态。
 - `src/styles/` 负责设计变量、网站外壳和演示样式；不通过样式隐藏业务状态。

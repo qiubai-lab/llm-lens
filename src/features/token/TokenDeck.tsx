@@ -9,24 +9,23 @@ import {
   ChevronRight,
   GitBranch,
   Lightbulb,
-  Pause,
-  Play,
   RotateCcw,
-  Shuffle,
   Sparkles,
 } from 'lucide-react';
 import { Concept, definitions } from '../../components/Concept';
 import { Token } from '../../components/Token';
-import { candidatesFor, examples, scenes, type ExampleId } from '../../core/lesson';
-import { defaults, distribution, randomAt, sample, type Parameters } from '../../core/sampling';
+import { examples, scenes, type ExampleId } from '../../core/lesson';
+import { defaults, type Parameters } from '../../core/sampling';
 import { parseRoute, sceneHref } from '../../app/route';
 import { ProbabilityChart } from './ProbabilityChart';
 import { FilterBoundary } from './FilterBoundary';
 import { ParameterPanel } from './ParameterPanel';
 import { SamplingStrip } from './SamplingStrip';
+import { GenerationControls } from './GenerationControls';
+import { ParameterComparison } from './ParameterComparison';
 import { useGeneration } from './useGeneration';
 
-export function TokenDeck({ scene }: { scene: number }) {
+export function TokenDeck({ scene, suspended = false }: { scene: number; suspended?: boolean }) {
   const [example, setExample] = useState<ExampleId>('sky');
   const [params, setParams] = useState<Parameters>(defaults);
   const [split, setSplit] = useState(true);
@@ -34,6 +33,9 @@ export function TokenDeck({ scene }: { scene: number }) {
   const [comparisonRound, setComparisonRound] = useState(0);
   const effective = scene < 2 ? defaults : scene === 2 ? { ...params, topK: 0, topP: 1 } : params;
   const gen = useGeneration(example, effective, scene);
+  useEffect(() => {
+    if (suspended) gen.setPlaying(false);
+  }, [suspended, gen.setPlaying]);
   const current = scenes[scene];
   const start = examples.find((e) => e.id === example)!;
   const layoutPrefix = `deck-${example}-${gen.words.length}`;
@@ -80,10 +82,15 @@ export function TokenDeck({ scene }: { scene: number }) {
         <div>
           <div className="eyebrow">
             {current.kicker}
-            <span>交互讲解 · TOKEN</span>
+            <span>{String(scene + 1).padStart(2, '0')} / 06</span>
           </div>
           <h1>{current.title}</h1>
-          <p>{current.description}</p>
+          <p>
+            {current.description}{' '}
+            <Concept title="本幕要点" compact>
+              {current.insight}
+            </Concept>
+          </p>
         </div>
         <div className="example-switch" aria-label="上下文示例">
           {examples.map((e) => (
@@ -102,7 +109,10 @@ export function TokenDeck({ scene }: { scene: number }) {
       </div>
       <LayoutGroup id="token-deck">
         <div className={`lesson-layout ${scene >= 2 ? 'with-controls' : ''}`}>
-          <section className={`stage scene-${scene + 1}`} aria-label={`${current.short}演示`}>
+          <section
+            className={`stage scene-${scene + 1} ${compare ? 'stage-comparison' : ''}`}
+            aria-label={`${current.short}演示`}
+          >
             <div className="stage-topline">
               <span className="stage-tag">
                 <i /> 教学模拟
@@ -141,7 +151,16 @@ export function TokenDeck({ scene }: { scene: number }) {
                 </motion.span>
               )}
             </motion.div>
-            {scene === 0 ? (
+            {compare ? (
+              <ParameterComparison
+                example={example}
+                words={gen.words}
+                params={effective}
+                round={comparisonRound}
+                onResample={() => setComparisonRound((r) => r + 1)}
+                onClose={() => setCompare(false)}
+              />
+            ) : scene === 0 ? (
               <div className="intro-stage">
                 <div className="token-bracket">
                   <span />
@@ -190,44 +209,8 @@ export function TokenDeck({ scene }: { scene: number }) {
                   <SamplingStrip rows={gen.rows} random={gen.random} attempt={gen.attempt} />
                 )}
                 {scene >= 4 && (
-                  <div className="generation-actions">
-                    <button
-                      className="button primary"
-                      onClick={gen.draw}
-                      disabled={gen.ended || gen.playing}
-                    >
-                      <Shuffle size={16} />
-                      {gen.selected ? '再抽一次' : '抽取下一个词'}
-                    </button>
-                    {scene === 5 && (
-                      <button
-                        className="button secondary"
-                        onClick={gen.append}
-                        disabled={!gen.selected || gen.playing || gen.ended}
-                      >
-                        <ArrowRight size={16} />
-                        {gen.selected === '<结束>' ? '确认结束' : '接到句尾'}
-                      </button>
-                    )}
-                    {scene === 5 && (
-                      <button
-                        className="icon-button play-button"
-                        aria-label={gen.playing ? '暂停连续生成' : '播放连续生成'}
-                        disabled={gen.ended}
-                        onClick={() => gen.setPlaying(!gen.playing)}
-                      >
-                        {gen.playing ? <Pause size={18} /> : <Play size={18} />}
-                      </button>
-                    )}
-                    <span className="generation-status" role="status">
-                      {gen.ended
-                        ? '遇到结束标记，本轮已完成。'
-                        : gen.selected
-                          ? `本次选中「${gen.selected === '<结束>' ? '结束标记' : gen.selected}」${scene === 5 ? '，等待接回上下文' : ''}`
-                          : scene === 5
-                            ? '先抽取，再追加；也可以播放完整过程'
-                            : '保持上下文不变，试试重复抽样'}
-                    </span>
+                  <div className="desktop-generation-controls">
+                    <GenerationControls generation={gen} scene={scene} />
                   </div>
                 )}
                 {scene === 3 && <FilterBoundary rows={gen.rows} topP={params.topP} />}
@@ -249,17 +232,11 @@ export function TokenDeck({ scene }: { scene: number }) {
                 filters={scene >= 3}
                 disabled={gen.playing}
               />
-              <div className="observation">
-                <div>
-                  <Lightbulb size={17} />
-                  <span>观察一下</span>
+              {scene >= 4 && !compare && (
+                <div className="mobile-generation-controls">
+                  <GenerationControls generation={gen} scene={scene} />
                 </div>
-                <p>
-                  {scene === 2
-                    ? `当前最高概率为 ${(gen.rows[0].probability * 100).toFixed(1)}%。${params.temperature < 1 ? '分布比原始状态更集中。' : params.temperature > 1 ? '更多候选获得了机会。' : '温度为 1，保持原始分布。'}`
-                    : `现在有 ${kept} 个词可以被选中。${kept === 1 ? '只剩一个候选，再抽样也会得到相同结果。' : '调整参数后，观察概率和最终选词如何变化。'}`}
-                </p>
-              </div>
+              )}
               {scene === 5 && (
                 <button
                   className={`compare-toggle ${compare ? 'active' : ''}`}
@@ -278,48 +255,17 @@ export function TokenDeck({ scene }: { scene: number }) {
           )}
         </div>
       </LayoutGroup>
-      {scene === 5 && compare && (
-        <section className="comparison" aria-label="参数对比">
-          <div className="comparison-heading">
-            <div>
-              <strong>只改变参数，会发生什么？</strong>
-              <p>固定本轮上下文和随机数，只比较参数对候选与选词的影响；两组结果也可能相同。</p>
-            </div>
-            <button className="button secondary" onClick={() => setComparisonRound((r) => r + 1)}>
-              换一个随机数
-            </button>
-          </div>
-          <div className="comparison-grid">
-            {[
-              { title: '默认参数', parameters: defaults },
-              { title: '当前参数', parameters: effective },
-            ].map(({ title, parameters }) => {
-              const rows = distribution(candidatesFor(example, gen.words), parameters);
-              const r = randomAt(73, comparisonRound);
-              const chosen = sample(rows, r);
-              return (
-                <div key={title}>
-                  <span className="tiny-label">
-                    {title} · 随机数 {r.toFixed(3)}
-                  </span>
-                  <strong>{chosen.word === '<结束>' ? '结束标记' : chosen.word}</strong>
-                  <span>
-                    被抽中概率 {(chosen.probability * 100).toFixed(1)}% ·{' '}
-                    {rows.filter((row) => row.probability > 0).length} 个候选
-                  </span>
-                  <small>
-                    T {parameters.temperature.toFixed(1)} / K {parameters.topK || '不限'} / P{' '}
-                    {parameters.topP.toFixed(2)}
-                  </small>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-      <div className="lesson-note">
-        <span>记住这一点</span>
-        <p>{current.insight}</p>
+      <div className="scene-feedback" role="status">
+        <Lightbulb size={15} />
+        <span>
+          {scene === 0
+            ? '先建立直觉：模型一次预测一个片段。'
+            : scene === 1
+              ? '上下文不同，候选与概率也不同。'
+              : scene === 2
+                ? `最高候选概率 ${(gen.rows[0].probability * 100).toFixed(1)}% · ${params.temperature < 1 ? '分布更集中' : params.temperature > 1 ? '分布更平缓' : '保持原始分布'}`
+                : `${kept} / ${gen.rows.length} 个候选参与抽样${kept === 1 ? ' · 再抽也会得到同一结果' : ' · 概率决定机会，不保证结果'}`}
+        </span>
       </div>
       <footer className="deck-navigation">
         <a className="button text-button" href={scene === 0 ? '#/' : sceneHref(scene - 1)}>
@@ -358,9 +304,6 @@ export function TokenDeck({ scene }: { scene: number }) {
           </a>
         </div>
       </footer>
-      <p className="keyboard-hint">
-        ← → 切换场景 <span>·</span> 悬停或点按概念，了解更多 <span>·</span> 所有概率均为教学模拟
-      </p>
     </main>
   );
 }

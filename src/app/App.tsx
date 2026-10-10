@@ -15,6 +15,7 @@ import {
   ZapOff,
 } from 'lucide-react';
 import { ReducedMotionContext, useSystemReducedMotion } from '../components/MotionPreference';
+import { FocusToolbar } from './FocusToolbar';
 import { Home } from './Home';
 import { parseRoute, sceneHref } from './route';
 import { topic } from '../core/lesson';
@@ -29,6 +30,12 @@ export function App() {
     setAbout(true);
   };
   const [directory, setDirectory] = useState(false);
+  const directoryTrigger = useRef<HTMLElement | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const openDirectory = (trigger: HTMLElement) => {
+    directoryTrigger.current = trigger;
+    setDirectory(true);
+  };
   const preferredReduced = useSystemReducedMotion();
   const [reduced, setReduced] = useState(false);
   const reduceMotion = Boolean(preferredReduced || reduced);
@@ -36,6 +43,7 @@ export function App() {
     const change = () => {
       setRoute(parseRoute(location.hash));
       setDirectory(false);
+      setSettingsOpen(false);
       window.scrollTo({ top: 0, behavior: 'instant' });
     };
     window.addEventListener('hashchange', change);
@@ -45,6 +53,8 @@ export function App() {
     document.documentElement.dataset.reducedMotion = String(reduceMotion);
   }, [reduceMotion]);
   useEffect(() => {
+    if (route.page === 'home' && document.fullscreenElement)
+      void document.exitFullscreen().catch(() => {});
     document.title = `${route.page === 'home' ? '看见语言模型如何生成' : topic.scenes[route.scene].short} · LLM Lens`;
   }, [route]);
   return (
@@ -66,50 +76,82 @@ export function App() {
           >
             跳至主要内容
           </a>
-          <header className="site-header">
-            <a className="brand" href="#/" aria-label="LLM Lens 首页">
-              <span className="brand-mark">
-                <Scan size={23} strokeWidth={2} />
-              </span>
-              <span>
-                LLM <b>Lens</b>
-                <small>看见，才能理解。</small>
-              </span>
-            </a>
-            <nav aria-label="主导航">
-              <a className={route.page === 'home' ? 'active' : ''} href="#/">
-                探索
-              </a>
-              <button onClick={(event) => openAbout(event.currentTarget)}>关于项目</button>
-            </nav>
-            <div className="header-end">
-              <span className="edition">一份可交互的 LLM 入门指南</span>
-              <button
-                className="icon-button motion-preference"
-                aria-label={reduceMotion ? '动态效果已减少' : '减少动态效果'}
-                aria-pressed={reduceMotion}
-                disabled={Boolean(preferredReduced)}
-                title={preferredReduced ? '已遵循系统减少动态效果设置' : '切换动态效果'}
-                onClick={() => setReduced(!reduced)}
-              >
-                {reduceMotion ? <ZapOff size={17} /> : <Zap size={17} />}
-              </button>
-            </div>
-          </header>
-          {route.page === 'home' ? <Home onAbout={openAbout} /> : <TokenDeck scene={route.scene} />}
+          <div className={route.page === 'token' ? 'focus-shell' : 'home-shell'}>
+            {route.page === 'home' ? (
+              <header className="site-header">
+                <a className="brand" href="#/" aria-label="LLM Lens 首页">
+                  <span className="brand-mark">
+                    <Scan size={23} strokeWidth={2} />
+                  </span>
+                  <span>
+                    LLM <b>Lens</b>
+                    <small>看见，才能理解。</small>
+                  </span>
+                </a>
+                <nav aria-label="主导航">
+                  <a className={route.page === 'home' ? 'active' : ''} href="#/">
+                    探索
+                  </a>
+                  <button onClick={(event) => openAbout(event.currentTarget)}>关于项目</button>
+                </nav>
+                <div className="header-end">
+                  <span className="edition">一份可交互的 LLM 入门指南</span>
+                  <button
+                    className="icon-button motion-preference"
+                    aria-label={reduceMotion ? '动态效果已减少' : '减少动态效果'}
+                    aria-pressed={reduceMotion}
+                    disabled={Boolean(preferredReduced)}
+                    title={preferredReduced ? '已遵循系统减少动态效果设置' : '切换动态效果'}
+                    onClick={() => setReduced(!reduced)}
+                  >
+                    {reduceMotion ? <ZapOff size={17} /> : <Zap size={17} />}
+                  </button>
+                </div>
+              </header>
+            ) : (
+              <FocusToolbar
+                scene={route.scene}
+                onDirectory={openDirectory}
+                settingsOpen={settingsOpen}
+                onSettingsChange={setSettingsOpen}
+                reduced={reduceMotion}
+                systemReduced={Boolean(preferredReduced)}
+                onReducedChange={() => setReduced(!reduced)}
+              />
+            )}
+            {route.page === 'home' ? (
+              <Home onAbout={openAbout} />
+            ) : (
+              <TokenDeck scene={route.scene} suspended={directory || settingsOpen || about} />
+            )}
+          </div>
           <Dialog.Root open={directory} onOpenChange={setDirectory}>
-            <Dialog.Trigger asChild>
-              <button className="directory-trigger">
+            {route.page === 'home' && (
+              <button
+                className="directory-trigger"
+                aria-label="探索目录"
+                onClick={(event) => openDirectory(event.currentTarget)}
+                aria-expanded={directory}
+              >
                 <List size={18} />
                 <span>探索目录</span>
-                {route.page === 'token' && (
-                  <span className="directory-count">{route.scene + 1}/6</span>
-                )}
               </button>
-            </Dialog.Trigger>
+            )}
             <Dialog.Portal>
               <Dialog.Overlay className="modal-overlay directory-overlay" />
-              <Dialog.Content className="directory-panel" aria-describedby="directory-description">
+              <Dialog.Content
+                className="directory-panel"
+                aria-describedby="directory-description"
+                onCloseAutoFocus={(event) => {
+                  event.preventDefault();
+                  const trigger = directoryTrigger.current;
+                  if (trigger?.isConnected) trigger.focus();
+                  else
+                    (
+                      document.querySelector('[aria-label="探索目录"]') as HTMLElement | null
+                    )?.focus();
+                }}
+              >
                 <div className="dialog-top">
                   <span className="tiny-label">YOUR EXPLORATION</span>
                   <Dialog.Close className="icon-button" aria-label="关闭目录">
