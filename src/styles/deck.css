@@ -1,9 +1,12 @@
-/* 专注演示外壳：固定进程导航，舞台内容按场景自然重排。 */
+/* 专注演示外壳：主体在可用空间内居中，空间不足时自然滚动。 */
 .focus-shell {
+  display: flex;
+  flex-direction: column;
   min-height: 100dvh;
   background: #fcfdff;
 }
 .focus-toolbar {
+  flex-shrink: 0;
   position: sticky;
   top: 0;
   z-index: 35;
@@ -158,13 +161,16 @@
 .deck-page {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  width: 100%;
   max-width: 1600px;
-  min-height: calc(100dvh - 56px);
+  min-height: 0;
   margin: auto;
   padding: 24px clamp(24px, 4vw, 64px) 89px;
 }
 .deck-heading {
   display: flex;
+  flex-shrink: 0;
   justify-content: space-between;
   align-items: flex-end;
   gap: 24px;
@@ -217,6 +223,9 @@
 .lesson-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  /* Center the complete demo row, including controls, in the remaining space.
+     Its intrinsic height still expands the page when the viewport is too short. */
+  align-content: center;
   gap: 36px;
   flex: 1;
 }
@@ -653,6 +662,7 @@
 }
 .scene-feedback {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   gap: 8px;
@@ -1040,7 +1050,6 @@
     font-size: var(--font-size-control);
   }
   .deck-page {
-    min-height: calc(100dvh - 54px);
     padding: 17px 18px 82px;
   }
   .deck-heading {
@@ -1072,7 +1081,6 @@
   .lesson-layout.with-controls {
     grid-template-columns: minmax(0, 1fr);
     gap: 14px;
-    flex: 0;
   }
   .stage {
     padding: 2px 0 0;
