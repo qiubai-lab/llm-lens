@@ -76,7 +76,7 @@ export const agentScenes = [
     title: '一条消息，串起整个循环',
     kicker: '06 / AGENT LOOP',
     description: '读取 Skill、读取文件、回传结果、生成摘要。一次用户请求，三轮模型通信。',
-    insight: '一次模型响应完成不等于整个任务完成。回看只是重建历史，不会再次执行工具。',
+    insight: '一次模型响应完成不等于整个任务完成。工具结果进入下一轮请求，模型再据此回答。',
   },
 ] as const;
 export const agentTopic = {
@@ -148,7 +148,6 @@ export function createLesson(scene: number, branch: Branch): Lesson {
     add('response.completed', '本轮响应结束，Agent 仍需执行工具', 'response', {
       response: { id: `resp_${round}`, status: 'completed', output: [complete] },
     });
-    if (scene === 2) return;
     add('local.tool_start', '校验通过，聚焦本地文件', 'local', { call_id: item.call_id, path });
     const failed = branch === 'file-error' && path === projectPath;
     add(
@@ -165,7 +164,6 @@ export function createLesson(scene: number, branch: Branch): Lesson {
   };
   if (useSkill) call(skillPath, 'skill');
   if (!simple) call(projectPath, 'file');
-  if (scene === 2) return { question, instructions, events, initialCursor: 0 };
   start();
   if (scene === 0) return { question, instructions, events: events.slice(0, 3), initialCursor: 0 };
   const fragments = simple
@@ -209,7 +207,7 @@ export function createLesson(scene: number, branch: Branch): Lesson {
         question,
         instructions,
         events,
-        initialCursor: scene === 3 ? events.findIndex((e) => e.type === 'local.tool_start') : 0,
+        initialCursor: 0,
       };
     }
   }
@@ -241,6 +239,6 @@ export function createLesson(scene: number, branch: Branch): Lesson {
     question,
     instructions,
     events,
-    initialCursor: scene === 3 ? events.findIndex((e) => e.type === 'local.tool_start') : 0,
+    initialCursor: 0,
   };
 }
