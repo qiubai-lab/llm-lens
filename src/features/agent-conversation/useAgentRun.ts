@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createLesson, type Branch } from '../../core/agent-conversation/fixtures';
 import { replay } from '../../core/agent-conversation/flow';
-import { interactionGate } from '../../core/agent-conversation/workbench';
+import { useCalmMotion } from '../../components/MotionPreference';
+import { flowTiming } from './motionTiming';
+import { transferHistory, interactionGate } from '../../core/agent-conversation/workbench';
 
 export function useAgentRun(scene: number, branch: Branch, suspended: boolean) {
+  const reduced = useCalmMotion();
   const lesson = useMemo(() => createLesson(scene, branch), [scene, branch]);
   const [cursor, setCursor] = useState(0);
   const [running, setRunning] = useState(false);
@@ -24,18 +27,21 @@ export function useAgentRun(scene: number, branch: Branch, suspended: boolean) {
   useEffect(() => {
     if (!running || suspended || cancelled || gate || ended) return;
     const next = lesson.events[cursor];
-    const delay =
+    const firstTransfer = transferHistory(lesson, cursor).at(-1)?.id === state.last?.id;
+    const delay = Math.max(
+      !reduced && firstTransfer ? flowTiming.stepHoldMs : 0,
       next.type === 'local.tool_result'
         ? 1100
         : next.type.startsWith('local.') || next.type.includes('delta')
           ? 700
-          : 250;
+          : 250,
+    );
     const timer = window.setTimeout(
       () => setCursor((c) => Math.min(c + 1, lesson.events.length)),
       delay,
     );
     return () => window.clearTimeout(timer);
-  }, [running, suspended, cancelled, gate, ended, lesson, cursor]);
+  }, [running, suspended, cancelled, gate, ended, lesson, cursor, state.last, reduced]);
   const send = () => {
     if (suspended) return;
     if (cancelled || ended || cursor === 0) {

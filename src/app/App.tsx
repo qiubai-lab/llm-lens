@@ -139,11 +139,7 @@ export function App() {
                   </main>
                 }
               >
-                <AgentDeck
-                  key={route.scene}
-                  scene={route.scene}
-                  suspended={directory || settingsOpen || about}
-                />
+                <AgentDeck suspended={directory || settingsOpen || about} />
               </Suspense>
             ) : (
               <Suspense
@@ -229,7 +225,7 @@ export function App() {
                   </div>
                 ))}
                 <p className="directory-tip">
-                  <Command size={14} /> 演示中可使用 ← → 切换场景
+                  <Command size={14} /> Token 演示可使用 ← → 切换场景
                 </p>
               </Dialog.Content>
             </Dialog.Portal>

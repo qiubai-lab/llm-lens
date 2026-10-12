@@ -34,57 +34,20 @@ export const toolDefinition = {
   },
   strict: true,
 };
-export const agentScenes = [
-  {
-    short: '发送请求',
-    title: '一句话，怎样抵达模型？',
-    kicker: '01 / REQUEST',
-    description: '在对话框发送消息，看指令、历史和工具定义怎样组成请求。',
-    insight: '文件在工作区里，不会因为发送消息就自动全部上传。',
-  },
-  {
-    short: '流式回答',
-    title: '回答，一片一片回到这里',
-    kicker: '02 / STREAM',
-    description: '服务器发送内容增量，应用解析后，更新同一个回答气泡。',
-    insight: 'SSE 事件不是一个 Token，也不一定是一个字。正文结束与响应结束分别记录。',
-  },
-  {
-    short: '工具调用',
-    title: '模型提出请求，Agent 来执行',
-    kicker: '03 / TOOL CALL',
-    description: '工具名和参数也可以流式返回。完整接收后，才轮到本地执行。',
-    insight: '模型不能直接读取你的本地文件。工具定义描述能力，实际读取由 Agent 运行时负责。',
-  },
-  {
-    short: '文件与结果',
-    title: '读到的文件，成为下一轮上下文',
-    kicker: '04 / TOOL RESULT',
-    description: '跟随一份文件内容：从本地预览，到工具结果，再到下一轮请求。',
-    insight: '工具结果通过 call_id 对应原调用。结果回传需要新的模型请求，文件仍留在本地。',
-  },
-  {
-    short: 'Skill 加载',
-    title: '先找到方法，再按方法做事',
-    kicker: '05 / SKILL',
-    description: '先看 Skill 的名字与描述，需要时读正文，再按步骤调用工具。',
-    insight:
-      'Skill 提供流程与知识，工具提供执行能力。本章通过 read_file 加载本地 Skill，是教学宿主的设计。',
-  },
-  {
-    short: '完整 Agent 循环',
-    title: '一条消息，串起整个循环',
-    kicker: '06 / AGENT LOOP',
-    description: '读取 Skill、读取文件、回传结果、生成摘要。一次用户请求，三轮模型通信。',
-    insight: '一次模型响应完成不等于整个任务完成。工具结果进入下一轮请求，模型再据此回答。',
-  },
-] as const;
 export const agentTopic = {
   id: 'agent' as const,
   title: 'Agent，是怎样完成任务的？',
   subtitle: '从对话框到工具与 Skill',
-  duration: '约 7 分钟',
-  scenes: agentScenes,
+  duration: '约 3 分钟',
+  scenes: [
+    {
+      short: '完整演示',
+      title: 'Agent，怎样完成一次任务？',
+      kicker: 'AGENT / WORKBENCH',
+      description: '读取 Skill、读取文件、回传结果、生成摘要。一次用户请求，三轮模型通信。',
+      insight: '工具结果进入下一轮请求，模型再据此回答。',
+    },
+  ],
 };
 
 export function createLesson(scene: number, branch: Branch): Lesson {

@@ -7,7 +7,9 @@ it('AC-004: 分享位置与非法 hash 有安全回退', () => {
 });
 
 it('AC-005: Agent 深链接与非法幕次', () => {
-  expect(parseRoute('#/agent/6')).toEqual({ page: 'agent', scene: 5 });
+  expect(parseRoute('#/agent')).toEqual({ page: 'agent', scene: 0 });
+  for (let n = 1; n <= 6; n++)
+    expect(parseRoute(`#/agent/${n}`)).toEqual({ page: 'agent', scene: 0 });
   for (const hash of ['#/agent/0', '#/agent/7', '#/agent/NaN'])
     expect(parseRoute(hash)).toEqual({ page: 'home' });
 });

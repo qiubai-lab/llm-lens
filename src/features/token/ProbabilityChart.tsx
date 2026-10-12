@@ -20,7 +20,7 @@ export function ProbabilityChart({
       <div className="chart-labels">
         <span>下一个词</span>
         <span>
-          {baseline ? '浅色：原始概率 · 深色：当前概率' : '参与抽样的概率'}{' '}
+          {baseline ? '底层：原始概率 · 高亮：当前概率' : '参与抽样的概率'}{' '}
           <Concept title="概率" compact>
             {definitions.概率}
           </Concept>

@@ -31,6 +31,7 @@ export function buildActivities(lesson: Lesson, cursor: number): Activity[] {
         title: result ? '接收工具结果' : '收到用户请求',
         content: result ? String(result.output) : lesson.question,
         status: '已接收',
+        callId: result ? String(result.call_id) : undefined,
         detail: request.body,
       },
     ];
@@ -79,6 +80,7 @@ export type Transfer = {
   toArea: 'chat' | 'local' | 'server';
   label: string;
   tone: 'blue' | 'purple' | 'green';
+  pending?: boolean;
 };
 export function currentTransfer(lesson: Lesson, cursor: number): Transfer | undefined {
   const state = replay(lesson, cursor);
@@ -146,4 +148,100 @@ export function currentTransfer(lesson: Lesson, cursor: number): Transfer | unde
         tone: 'green',
       };
   }
+}
+
+// Inspection restores visual associations only; replay remains the source of execution state.
+export function activityTransfers(lesson: Lesson, cursor: number, cardId: string): Transfer[] {
+  const card = buildActivities(lesson, cursor).find((c) => c.id === cardId);
+  if (!card) return [];
+  const state = replay(lesson, cursor);
+  const link = (
+    kind: Transfer['kind'],
+    from: string,
+    to: string,
+    fromArea: Transfer['fromArea'],
+    toArea: Transfer['toArea'],
+    label: string,
+    tone: Transfer['tone'],
+    pending = false,
+  ): Transfer => ({
+    id: `${cardId}-${kind}`,
+    kind,
+    from,
+    to,
+    fromArea,
+    toArea,
+    label,
+    tone,
+    pending,
+  });
+  if (card.kind === 'answer')
+    return [link('text', card.id, 'answer', 'server', 'chat', '流式响应', 'green')];
+  const links =
+    card.kind === 'call'
+      ? [link('call', card.id, `agent-call-${card.callId}`, 'server', 'chat', '调用工具', 'purple')]
+      : [
+          link(
+            card.callId ? 'continuation' : 'request',
+            card.callId ? `agent-result-${card.callId}` : 'composer',
+            card.id,
+            'chat',
+            'server',
+            card.callId ? '回传结果' : '发送请求',
+            'blue',
+          ),
+        ];
+  const call = state.calls.find((c) => c.callId === card.callId);
+  if (call?.path) {
+    const pending = call.status === 'ready' || call.status === 'assembling';
+    links.push(
+      link(
+        'execute',
+        `agent-call-${call.callId}`,
+        `file-${call.path}`,
+        'chat',
+        'local',
+        pending ? '待读取' : call.callId === 'call_skill' ? '加载 Skill' : '读取文件',
+        'purple',
+        pending,
+      ),
+    );
+    if (call.result !== undefined)
+      links.push(
+        link(
+          'result',
+          `terminal-${call.callId}`,
+          `agent-result-${call.callId}`,
+          'local',
+          'chat',
+          call.status === 'failed' ? '返回错误' : '返回内容',
+          'green',
+        ),
+      );
+  }
+  return links;
+}
+
+export const transferKey = (transfer: Transfer) =>
+  `${transfer.kind}:${transfer.from}:${transfer.to}`;
+export type NumberedTransfer = Transfer & { sequence: number };
+// Ordered, pure history: a streaming answer contributes one semantic connection.
+export function transferHistory(lesson: Lesson, cursor: number): NumberedTransfer[] {
+  const types = new Set([
+    'local.request',
+    'response.function_call_arguments.done',
+    'local.tool_start',
+    'local.tool_result',
+    'response.output_text.delta',
+  ]);
+  const seen = new Set<string>();
+  const history: NumberedTransfer[] = [];
+  lesson.events.slice(0, cursor).forEach((event, index) => {
+    if (!types.has(event.type)) return;
+    const transfer = currentTransfer(lesson, index + 1);
+    if (!transfer || seen.has(transferKey(transfer))) return;
+    seen.add(transferKey(transfer));
+    history.push({ ...transfer, sequence: history.length + 1 });
+  });
+  return history;
 }

@@ -71,9 +71,11 @@ export function FocusToolbar({
         >
           <List size={18} />
           <span>目录</span>
-          <small>
-            {scene + 1}/{topic.scenes.length}
-          </small>
+          {topic.id !== 'agent' && (
+            <small>
+              {scene + 1}/{topic.scenes.length}
+            </small>
+          )}
         </button>
         <button
           className="icon-button fullscreen-button"
@@ -117,7 +119,11 @@ export function FocusToolbar({
                 </span>
                 {reduced && <Check size={16} />}
               </button>
-              <p>← → 切换场景 · 悬停或点按概念查看解释</p>
+              <p>
+                {topic.id === 'agent'
+                  ? '选择模型任务卡查看关联 · 点击详情查看数据'
+                  : '← → 切换场景 · 悬停或点按概念查看解释'}
+              </p>
               <span>教学模拟 · {topic.id === 'token' ? '按词简化展示' : '预设事件回放'}</span>
               <Popover.Arrow />
             </Popover.Content>

@@ -1,79 +1,84 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { agentScenes, type Branch } from '../../core/agent-conversation/fixtures';
-import { buildActivities, currentTransfer } from '../../core/agent-conversation/workbench';
-import { sceneHref } from '../../app/route';
+import { agentTopic, type Branch } from '../../core/agent-conversation/fixtures';
+import {
+  activityTransfers,
+  buildActivities,
+  transferHistory,
+  transferKey,
+} from '../../core/agent-conversation/workbench';
 import { useAgentRun } from './useAgentRun';
 import { AgentChat } from './AgentChat';
 import { LocalWorkbench } from './LocalWorkbench';
 import { ServiceWorkbench } from './ServiceWorkbench';
+import { RegionFocus } from './RegionFocus';
 import { FlowConnections } from './FlowConnections';
-export function AgentDeck({ scene, suspended }: { scene: number; suspended: boolean }) {
+export function AgentDeck({ suspended }: { suspended: boolean }) {
   const [branch, setBranch] = useState<Branch>('normal');
-  return (
-    <AgentLesson
-      key={`${scene}-${branch}`}
-      scene={scene}
-      branch={branch}
-      onBranch={setBranch}
-      suspended={suspended}
-    />
-  );
+  return <AgentLesson key={branch} branch={branch} onBranch={setBranch} suspended={suspended} />;
 }
 function AgentLesson({
-  scene,
   branch,
   onBranch,
   suspended,
 }: {
-  scene: number;
   branch: Branch;
   onBranch: (b: Branch) => void;
   suspended: boolean;
 }) {
-  const run = useAgentRun(scene, branch, suspended);
+  const [selectedId, setSelectedId] = useState<string>();
+  const [detailId, setDetailId] = useState<string>();
+  const paused = suspended || Boolean(detailId);
+  const run = useAgentRun(5, branch, paused);
   const activities = useMemo(
     () => buildActivities(run.lesson, run.cursor),
     [run.lesson, run.cursor],
   );
-  const transfer = useMemo(() => currentTransfer(run.lesson, run.cursor), [run.lesson, run.cursor]);
+  const card = activities.find((c) => c.id === selectedId);
+  const history = useMemo(() => transferHistory(run.lesson, run.cursor), [run.lesson, run.cursor]);
+  const completeHistory = useMemo(
+    () => transferHistory(run.lesson, run.lesson.events.length),
+    [run.lesson],
+  );
+  const related = useMemo(
+    () => (selectedId ? activityTransfers(run.lesson, run.cursor, selectedId) : []),
+    [run.lesson, run.cursor, selectedId],
+  );
+  const transfers = [...history];
+  for (const preview of related) {
+    if (!history.some((t) => transferKey(t) === transferKey(preview))) {
+      const sequence = completeHistory.find(
+        (t) => transferKey(t) === transferKey(preview),
+      )?.sequence;
+      if (sequence) transfers.push({ ...preview, sequence });
+    }
+  }
+  const focus = selectedId ? related[0] : history.at(-1);
+  const relatedKeys = new Set(related.map(transferKey));
+  const side = (t: (typeof history)[number]) =>
+    t.fromArea === 'local' || t.toArea === 'local' ? 'local' : 'server';
+  const inspectionPath = run.state.calls.find((c) => c.callId === card?.callId)?.path;
   useEffect(() => {
-    const navigate = (e: KeyboardEvent) => {
-      if (
-        e.defaultPrevented ||
-        e.ctrlKey ||
-        e.metaKey ||
-        e.altKey ||
-        !(e.target instanceof Element) ||
-        e.target.closest(
-          'input,textarea,select,button,a,summary,[role="dialog"],[data-radix-popper-content-wrapper]',
-        ) ||
-        document.querySelector('[role="dialog"]')
-      )
-        return;
-      if (e.key === 'ArrowRight' && scene < 5) {
-        e.preventDefault();
-        location.hash = sceneHref(scene + 1, 'agent');
-      }
-      if (e.key === 'ArrowLeft' && scene > 0) {
-        e.preventDefault();
-        location.hash = sceneHref(scene - 1, 'agent');
-      }
-    };
-    window.addEventListener('keydown', navigate);
-    return () => window.removeEventListener('keydown', navigate);
-  }, [scene]);
-  const current = agentScenes[scene];
+    if (!selectedId) return;
+    const anchors = related.filter((t) => t.fromArea === 'chat' || t.toArea === 'chat');
+    const name = anchors[0]?.fromArea === 'chat' ? anchors[0].from : anchors[0]?.to;
+    const el = Array.from(document.querySelectorAll<HTMLElement>('[data-flow-anchor]')).find(
+      (e) => e.dataset.flowAnchor === name,
+    );
+    const scroll = el?.closest<HTMLElement>('.agent-chat-scroll');
+    if (el && scroll)
+      scroll.scrollTop += el.getBoundingClientRect().top - scroll.getBoundingClientRect().top - 20;
+  }, [selectedId]);
+  const act = (action: () => void) => {
+    setSelectedId(undefined);
+    action();
+  };
   return (
     <main className="deck-page agent-deck" id="main-content">
       <div className="deck-heading">
         <div>
-          <div className="eyebrow">
-            {current.kicker}
-            <span>{String(scene + 1).padStart(2, '0')} / 06</span>
-          </div>
+          <div className="eyebrow">{agentTopic.scenes[0].kicker}</div>
           <div className="deck-title-row">
-            <h1>{current.title}</h1>
+            <h1>{agentTopic.scenes[0].title}</h1>
           </div>
         </div>
         <span className="workbench-simulation">
@@ -82,14 +87,22 @@ function AgentLesson({
       </div>
       <div className="agent-stage-slot">
         <div className="agent-stage-content">
-          <div className="agent-stage">
+          <div
+            className="agent-stage"
+            data-related-areas={
+              selectedId
+                ? Array.from(new Set(related.flatMap((t) => [t.fromArea, t.toArea]))).join(' ')
+                : undefined
+            }
+          >
             <LocalWorkbench
               state={run.state}
-              gate={run.cancelled || suspended ? undefined : run.gate}
-              onExecute={run.execute}
+              gate={run.cancelled || paused ? undefined : run.gate}
+              onExecute={() => act(run.execute)}
               branch={branch}
-              onBranch={scene === 3 ? onBranch : undefined}
+              onBranch={onBranch}
               canConfigure={!run.busy}
+              inspectionPath={inspectionPath}
             />
             <AgentChat
               state={run.state}
@@ -99,53 +112,61 @@ function AgentLesson({
               ended={run.ended}
               phase={run.phase}
               gate={run.gate}
-              suspended={suspended}
-              onSend={run.send}
+              suspended={paused}
+              onSend={() => act(run.send)}
               onStop={run.stop}
-              onExecute={run.execute}
-              onReset={run.reset}
+              onExecute={() => act(run.execute)}
+              onReset={() => act(run.reset)}
               interrupt={branch === 'interrupted'}
-              onInterrupt={
-                scene === 5
-                  ? () => onBranch(branch === 'interrupted' ? 'normal' : 'interrupted')
-                  : undefined
-              }
+              onInterrupt={() => onBranch(branch === 'interrupted' ? 'normal' : 'interrupted')}
             />
-            <ServiceWorkbench activities={activities} status={run.phase} />
-            <FlowConnections transfer={transfer} active={run.busy && !run.gate} />
+            <ServiceWorkbench
+              activities={activities}
+              status={run.phase}
+              state={run.state}
+              selectedId={selectedId}
+              onSelect={(id) => setSelectedId(id === selectedId ? undefined : id)}
+              onFollow={() => setSelectedId(undefined)}
+              detailId={detailId}
+              onDetails={(id) => {
+                setSelectedId(id);
+                setDetailId(id);
+              }}
+              onCloseDetails={() => setDetailId(undefined)}
+            />
+            {focus && (
+              <RegionFocus
+                transfer={focus}
+                inspecting={Boolean(selectedId)}
+                paused={paused || run.cancelled}
+              />
+            )}
+            {transfers.map((transfer) => (
+              <FlowConnections
+                key={transferKey(transfer)}
+                transfer={transfer}
+                sequence={transfer.sequence}
+                laneIndex={completeHistory
+                  .filter((t) => side(t) === side(transfer))
+                  .findIndex((t) => transferKey(t) === transferKey(transfer))}
+                laneCount={completeHistory.filter((t) => side(t) === side(transfer)).length}
+                emphasized={
+                  selectedId
+                    ? relatedKeys.has(transferKey(transfer))
+                    : transferKey(transfer) === transferKey(history.at(-1)!)
+                }
+                reveal={!selectedId && !paused && !run.cancelled}
+                active={
+                  !selectedId &&
+                  run.busy &&
+                  !run.gate &&
+                  transferKey(transfer) === transferKey(history.at(-1)!)
+                }
+              />
+            ))}
           </div>
         </div>
       </div>
-      <footer className="deck-navigation">
-        <a
-          className="button text-button deck-nav-link"
-          href={scene === 0 ? '#/' : sceneHref(scene - 1, 'agent')}
-        >
-          <ChevronLeft size={17} />
-          {scene === 0 ? '首页' : '上一章'}
-        </a>
-        <div className="scene-progress" aria-label="章节进度">
-          {agentScenes.map((s, i) => (
-            <a
-              key={s.short}
-              href={sceneHref(i, 'agent')}
-              aria-label={`第 ${i + 1} 章：${s.short}`}
-              aria-current={scene === i ? 'step' : undefined}
-              className={i <= scene ? 'visited' : ''}
-            >
-              <span />
-            </a>
-          ))}
-          <span>{String(scene + 1).padStart(2, '0')} / 06</span>
-        </div>
-        <a
-          className="button text-button deck-nav-link"
-          href={scene < 5 ? sceneHref(scene + 1, 'agent') : '#/'}
-        >
-          {scene < 5 ? '下一章' : '回到首页'}
-          <ChevronRight size={17} />
-        </a>
-      </footer>
     </main>
   );
 }

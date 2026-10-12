@@ -21,6 +21,7 @@ export function LocalWorkbench({
   branch,
   onBranch,
   canConfigure,
+  inspectionPath,
 }: {
   state: FlowState;
   gate?: Call;
@@ -28,6 +29,7 @@ export function LocalWorkbench({
   branch: Branch;
   onBranch?: (b: Branch) => void;
   canConfigure: boolean;
+  inspectionPath?: string;
 }) {
   const [selected, setSelected] = useState(projectPath);
   const [notes, setNotes] = useState(true);
@@ -35,16 +37,26 @@ export function LocalWorkbench({
   const terminal = useRef<HTMLDivElement>(null);
   const follow = useRef(true);
   useEffect(() => {
-    if (state.activeFile) {
-      setSelected(state.activeFile);
-      if (state.activeFile === skillPath) setSkills(true);
+    const path = inspectionPath ?? state.activeFile;
+    if (path) {
+      setSelected(path);
+      if (path === skillPath) setSkills(true);
       else setNotes(true);
     }
-  }, [state.activeFile]);
+  }, [state.activeFile, inspectionPath]);
   useEffect(() => {
     if (terminal.current && follow.current)
       terminal.current.scrollTop = terminal.current.scrollHeight;
   }, [state.calls]);
+  useEffect(() => {
+    const el = terminal.current;
+    if (!el || !inspectionPath) return;
+    const call = state.calls.find((c) => c.path === inspectionPath);
+    const entry = Array.from(el.querySelectorAll<HTMLElement>('[data-flow-anchor]')).find(
+      (e) => e.dataset.flowAnchor === `terminal-${call?.callId}`,
+    );
+    if (entry) el.scrollTop += entry.getBoundingClientRect().top - el.getBoundingClientRect().top;
+  }, [inspectionPath, state.calls]);
   const missing = branch === 'file-error';
   const current = state.calls.find((c) => c.path === selected);
   const content =
@@ -61,7 +73,11 @@ export function LocalWorkbench({
     >
       <FileText size={13} />
       <span>{path === projectPath ? 'project.md' : 'SKILL.md'}</span>
-      {state.calls.some((c) => c.path === path && c.status === 'succeeded') && <Check size={12} />}
+      <span className="file-status-slot">
+        {state.calls.some((c) => c.path === path && c.status === 'succeeded') && (
+          <Check size={12} />
+        )}
+      </span>
     </button>
   );
   return (
@@ -83,6 +99,9 @@ export function LocalWorkbench({
         </div>
         <div className="workbench-files">
           <nav className="workbench-tree" aria-label="文件管理">
+            <div className="tree-width-reserve" aria-hidden="true">
+              project-summary
+            </div>
             <button
               className="workbench-folder"
               onClick={() => setNotes(!notes)}

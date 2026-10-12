@@ -205,25 +205,13 @@ export function Home({ onAbout }: { onAbout: (trigger: HTMLElement) => void }) {
           <p>一条消息，连接模型、文件与 Skill。看见对话背后的数据流。</p>
         </div>
         <div className="path-items">
-          {[
-            { n: '01—02', title: '走进一次对话', text: '请求送出去，回答流回来', scene: 1 },
-            { n: '03—04', title: '看见工具执行', text: '读取文件，把结果带回模型', scene: 3 },
-            {
-              n: '05—06',
-              title: '串起 Agent 循环',
-              text: '按需加载 Skill，完成整个任务',
-              scene: 5,
-            },
-          ].map((item) => (
-            <a href={`#/agent/${item.scene}`} key={item.n}>
-              <span>{item.n}</span>
-              <strong>
-                {item.title}
-                <ArrowUpRight size={17} />
-              </strong>
-              <p>{item.text}</p>
-            </a>
-          ))}
+          <a href="#/agent" className="agent-path-entry">
+            <span>AGENT</span>
+            <strong>
+              打开 Agent 工作台 <ArrowUpRight size={17} />
+            </strong>
+            <p>加载 Skill、读取文件、回传结果，完成一次任务</p>
+          </a>
         </div>
       </section>
       <footer className="home-footer">
