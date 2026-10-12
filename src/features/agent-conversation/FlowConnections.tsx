@@ -184,7 +184,22 @@ export function FlowConnections({
     };
     const observer = new ResizeObserver(schedule);
     observer.observe(stage);
-    stage.querySelectorAll('[data-flow-anchor]').forEach((el) => observer.observe(el));
+    const observed = new Set<Element>();
+    const observeContent = () => {
+      for (const el of observed) {
+        if (!stage.contains(el)) {
+          observer.unobserve(el);
+          observed.delete(el);
+        }
+      }
+      stage.querySelectorAll('[data-flow-anchor], .content-expand').forEach((el) => {
+        if (!observed.has(el)) {
+          observer.observe(el);
+          observed.add(el);
+        }
+      });
+    };
+    observeContent();
     const mutations = new MutationObserver((records) => {
       if (
         records.some(
@@ -193,8 +208,10 @@ export function FlowConnections({
               record.target instanceof Element ? record.target : record.target.parentElement
             )?.closest('.flow-connections, .flow-label-layer'),
         )
-      )
+      ) {
+        observeContent();
         schedule();
+      }
     });
     mutations.observe(stage, {
       subtree: true,
@@ -216,7 +233,7 @@ export function FlowConnections({
   }, [transfer, laneIndex, laneCount, label, markerId, sequence]);
   const tone = transfer?.tone ?? 'blue';
   const animate = reveal && !reduced;
-  const arrive = animate ? { duration: 0.12, delay: flowTiming.arrival } : { duration: 0 };
+  const arrive = animate ? { duration: 0.12, delay: flowTiming.lineArrival } : { duration: 0 };
   const key = `${transfer?.kind}-${transfer?.from}-${transfer?.to}`;
   return (
     <>
@@ -267,7 +284,7 @@ export function FlowConnections({
                 animate={{ pathLength: 1 }}
                 transition={
                   animate
-                    ? { duration: flowTiming.draw, delay: flowTiming.focus, ease: 'linear' }
+                    ? { duration: flowTiming.draw, ease: 'linear' }
                     : { duration: 0 }
                 }
               />

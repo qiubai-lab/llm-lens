@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { flowTiming } from './motionTiming';
 import { motion } from 'motion/react';
 import type { Transfer } from '../../core/agent-conversation/workbench';
+import { transferKey } from '../../core/agent-conversation/workbench';
 import { useCalmMotion } from '../../components/MotionPreference';
 
 const selectors = { local: '.workbench-local', chat: '.agent-chat', server: '.workbench-service' };
@@ -11,10 +12,12 @@ export function RegionFocus({
   transfer,
   inspecting,
   paused,
+  anchor,
 }: {
   transfer: Transfer;
   inspecting: boolean;
   paused: boolean;
+  anchor: string;
 }) {
   const layer = useRef<HTMLDivElement>(null);
   const reduced = useCalmMotion();
@@ -23,6 +26,41 @@ export function RegionFocus({
     { area: Transfer['toArea']; boxes: Record<Transfer['toArea'], Box> } | undefined
   >(undefined);
   const area = inspecting ? 'server' : transfer.toArea;
+  const highlighted = useRef<Element[]>([]);
+  const identity = transferKey(transfer);
+  useLayoutEffect(() => {
+    const stage = layer.current?.parentElement;
+    if (!stage) return;
+    const apply = () => {
+      highlighted.current.forEach((el) => el.removeAttribute('data-flow-focused'));
+      const target = Array.from(stage.querySelectorAll('[data-flow-anchor]')).find(
+        (el) => el.getAttribute('data-flow-anchor') === anchor,
+      );
+      const targets = target ? [target] : [];
+      if (!inspecting && transfer.toArea === 'local' && transfer.kind === 'execute') {
+        const editor = stage.querySelector('.workbench-editor');
+        if (editor && !targets.includes(editor)) targets.push(editor);
+        const file = Array.from(stage.querySelectorAll('[data-file-path]')).find(
+          (el) => el.getAttribute('data-file-path') === transfer.to.slice('file-'.length),
+        );
+        if (file) targets.push(file);
+      }
+      targets.forEach((el) => el.setAttribute('data-flow-focused', transfer.tone));
+      highlighted.current = targets;
+    };
+    if (reduced || inspecting || paused) {
+      const frame = requestAnimationFrame(apply);
+      return () => cancelAnimationFrame(frame);
+    }
+    const timer = window.setTimeout(apply, flowTiming.arrival * 1000);
+    return () => window.clearTimeout(timer);
+  }, [identity, anchor, reduced, inspecting, paused, transfer.tone]);
+  useLayoutEffect(
+    () => () => {
+      highlighted.current.forEach((el) => el.removeAttribute('data-flow-focused'));
+    },
+    [],
+  );
   useLayoutEffect(() => {
     const stage = layer.current?.parentElement;
     if (!stage) return;
@@ -85,7 +123,7 @@ export function RegionFocus({
       transition={
         reduced || inspecting || paused || resized
           ? { duration: 0 }
-          : { type: 'spring', duration: flowTiming.focus, bounce: 0 }
+          : { type: 'spring', duration: flowTiming.focus, bounce: 0, delay: flowTiming.lineArrival }
       }
     />
   );

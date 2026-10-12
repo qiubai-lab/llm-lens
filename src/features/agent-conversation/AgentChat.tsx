@@ -6,7 +6,9 @@ import {
   Check,
   ChevronDown,
   FileText,
-  Paperclip,
+  LoaderCircle,
+  CircleAlert,
+  Wrench,
   Play,
   RotateCcw,
   Sparkles,
@@ -15,6 +17,10 @@ import {
 import { motion } from 'motion/react';
 import type { Call, FlowState } from '../../core/agent-conversation/flow';
 import { RawData } from './RawData';
+import { useCalmMotion } from '../../components/MotionPreference';
+import { contentEntrance, ExpandContent, RevealText, useFollowExpansion } from './ContentReveal';
+import { flowTiming } from './motionTiming';
+import { toolDefinition } from '../../core/agent-conversation/fixtures';
 const labels = {
   assembling: '接收参数',
   ready: '等待执行',
@@ -53,12 +59,16 @@ export function AgentChat({
   interrupt?: boolean;
   onInterrupt?: () => void;
 }) {
+  const reduced = useCalmMotion();
+  const availableTools = state.requests.at(-1)?.body.tools ?? [toolDefinition];
   const scroll = useRef<HTMLDivElement>(null);
   const follow = useRef(true);
+  useFollowExpansion(scroll, follow);
   const [newContent, setNewContent] = useState(false);
   useEffect(() => {
     const el = scroll.current;
     if (!el) return;
+    if (!state.user) follow.current = true;
     if (follow.current) {
       el.scrollTop = el.scrollHeight;
       setNewContent(false);
@@ -129,97 +139,147 @@ export function AgentChat({
           </div>
         )}
         {state.user && (
-          <div className="agent-user-message">
+          <motion.div className="agent-user-message" {...contentEntrance(reduced)}>
             <span className="agent-message-label">你</span>
             <p>{state.user}</p>
-          </div>
+          </motion.div>
         )}
         {state.calls.map((call) => (
-          <article
-            className={`agent-tool-card ${call.status === 'running' ? 'tool-active' : ''}`}
-            key={call.id}
-            data-flow-anchor={`agent-call-${call.callId}`}
-          >
-            <details>
-              <summary>
-                <span className="agent-tool-icon">
-                  <FileText size={15} />
-                </span>
-                <span>
-                  <strong>
-                    {call.callId === 'call_skill' ? '加载项目摘要 Skill' : '读取项目文件'}
-                  </strong>
-                  <small>{call.path ?? 'read_file · 参数接收中'}</small>
-                </span>
-                <span
-                  className={`agent-call-status ${call.status === 'failed' ? 'agent-error' : ''}`}
-                >
-                  {call.status === 'succeeded' && <Check size={12} />} {labels[call.status]}
-                </span>
-                <ChevronDown size={13} />
-              </summary>
-              <div className="agent-tool-details">
-                <span className="tiny-label">{call.callId}</span>
-                <RawData value={{ name: call.name, arguments: call.arguments }} />
-                {call.result !== undefined && <RawData value={call.result} />}
+          <ExpandContent key={call.id}>
+            <motion.article
+              className={`agent-tool-card ${call.status === 'running' ? 'tool-active' : ''}`}
+              key={call.id}
+              data-flow-anchor={`agent-call-${call.callId}`}
+              data-motion-paused={reduced || !busy || suspended || cancelled}
+              initial={{ opacity: reduced ? 1 : 0, y: reduced ? 0 : 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: reduced ? 0 : flowTiming.content }}
+            >
+              <details>
+                <summary>
+                  <span className="agent-tool-icon">
+                    {call.status === 'running' ? (
+                      <LoaderCircle className="agent-tool-spinner" size={15} />
+                    ) : (
+                      <FileText size={15} />
+                    )}
+                  </span>
+                  <span>
+                    <strong>
+                      {call.callId === 'call_skill' ? '加载项目摘要 Skill' : '读取项目文件'}
+                    </strong>
+                    <small>{call.path ?? 'read_file · 参数接收中'}</small>
+                  </span>
+                  <span
+                    className={`agent-call-status ${call.status === 'failed' ? 'agent-error' : ''}`}
+                  >
+                    <motion.span
+                      key={call.status}
+                      className="agent-call-state"
+                      {...contentEntrance(reduced)}
+                    >
+                      {call.status === 'assembling' ? (
+                        <i className="agent-status-dot" aria-hidden="true" />
+                      ) : call.status === 'ready' ? (
+                        <Play size={12} aria-hidden="true" />
+                      ) : call.status === 'running' ? (
+                        <LoaderCircle className="agent-tool-spinner" size={12} aria-hidden="true" />
+                      ) : call.status === 'succeeded' ? (
+                        <Check size={12} aria-hidden="true" />
+                      ) : (
+                        <CircleAlert size={12} aria-hidden="true" />
+                      )}
+                      {call.status === 'running' && cancelled
+                        ? '读取已停止'
+                        : call.status === 'running' && (!busy || suspended)
+                          ? '读取已暂停'
+                          : labels[call.status]}
+                    </motion.span>
+                  </span>
+                  <ChevronDown size={13} />
+                </summary>
+                <div className="agent-tool-details">
+                  <span className="tiny-label">{call.callId}</span>
+                  <RawData value={{ name: call.name, arguments: call.arguments }} />
+                  {call.result !== undefined && <RawData value={call.result} />}
+                </div>
+              </details>
+              <div className="agent-tool-result" data-flow-anchor={`agent-result-${call.callId}`}>
+                {call.result !== undefined ? (
+                  <>
+                    <motion.span {...contentEntrance(reduced, flowTiming.arrival)}>
+                      工具结果
+                    </motion.span>
+                    <p>
+                      <RevealText
+                        delay={flowTiming.arrival}
+                        text={
+                          (call.result.startsWith('---')
+                            ? (call.result.split('---')[2]?.trim() ?? call.result)
+                            : call.result
+                          ).slice(0, 82) + (call.result.length > 82 ? '…' : '')
+                        }
+                      />
+                    </p>
+                  </>
+                ) : gate?.callId === call.callId ? (
+                  <button
+                    className="agent-execute"
+                    onClick={(e) => {
+                      e.currentTarget
+                        .closest('article')
+                        ?.querySelector('summary')
+                        ?.focus({ preventScroll: true });
+                      onExecute();
+                    }}
+                    disabled={suspended || cancelled}
+                  >
+                    <Play size={13} />
+                    {call.callId === 'call_skill' ? '加载 Skill' : '执行读取'}
+                    <span>→ 工作区</span>
+                  </button>
+                ) : (
+                  <span className="agent-tool-pending">
+                    {call.status === 'assembling' ? '等待参数完整' : '等待工具结果'}
+                  </span>
+                )}
               </div>
-            </details>
-            <div className="agent-tool-result" data-flow-anchor={`agent-result-${call.callId}`}>
-              {call.result !== undefined ? (
-                <>
-                  <span>工具结果</span>
-                  <p>
-                    {(call.result.startsWith('---')
-                      ? (call.result.split('---')[2]?.trim() ?? call.result)
-                      : call.result
-                    ).slice(0, 82)}
-                    {call.result.length > 82 ? '…' : ''}
-                  </p>
-                </>
-              ) : gate?.callId === call.callId ? (
-                <button
-                  className="agent-execute"
-                  onClick={(e) => {
-                    e.currentTarget
-                      .closest('article')
-                      ?.querySelector('summary')
-                      ?.focus({ preventScroll: true });
-                    onExecute();
-                  }}
-                  disabled={suspended || cancelled}
-                >
-                  <Play size={13} />
-                  {call.callId === 'call_skill' ? '加载 Skill' : '执行读取'}
-                  <span>→ 工作区</span>
-                </button>
-              ) : (
-                <span className="agent-tool-pending">
-                  {call.status === 'assembling' ? '等待参数完整' : '等待工具结果'}
-                </span>
-              )}
-            </div>
-          </article>
+              <div
+                className="agent-tool-progress"
+                hidden={call.status !== 'running'}
+                aria-hidden="true"
+              >
+                <span />
+              </div>
+            </motion.article>
+          </ExpandContent>
         ))}
         {state.answer && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="agent-assistant-message"
-            data-flow-anchor="answer"
-          >
-            <div className="assistant-byline">
-              <Bot size={15} />
-              <span>Lens Agent</span>
-              {state.task === 'finished' && <Check size={13} />}
-            </div>
-            <p>
-              {state.answer}
-              <span
-                className="agent-text-cursor"
-                hidden={state.response !== 'streaming' || cancelled}
-              />
-            </p>
-          </motion.div>
+          <ExpandContent>
+            <motion.div
+              initial={{ opacity: reduced ? 1 : 0 }}
+              animate={{ opacity: 1 }}
+              transition={{
+                duration: reduced ? 0 : flowTiming.content,
+                delay: reduced ? 0 : flowTiming.arrival,
+              }}
+              className="agent-assistant-message"
+              data-flow-anchor="answer"
+            >
+              <div className="assistant-byline">
+                <Bot size={15} />
+                <span>Lens Agent</span>
+                {state.task === 'finished' && <Check size={13} />}
+              </div>
+              <motion.p {...contentEntrance(reduced, flowTiming.arrival)}>
+                {state.answer}
+                <span
+                  className="agent-text-cursor"
+                  hidden={state.response !== 'streaming' || cancelled}
+                />
+              </motion.p>
+            </motion.div>
+          </ExpandContent>
         )}
         {(state.task === 'blocked' || cancelled) && (
           <p className="agent-chat-warning">
@@ -274,7 +334,12 @@ export function AgentChat({
         />
         <div className="composer-toolbar">
           <span className="composer-context">
-            <Paperclip size={12} /> llm-lens <span className="composer-preset">· 场景问题</span>
+            <span className="composer-model">
+              <Sparkles size={12} aria-hidden="true" /> deepseek
+            </span>
+            <span className="composer-tool-count">
+              <Wrench size={12} aria-hidden="true" /> {availableTools.length} 个工具
+            </span>
           </span>
           <div>
             {onInterrupt && (

@@ -67,6 +67,7 @@ export function LocalWorkbench({
     <button
       key={path}
       className={`workbench-file ${path === selected ? 'selected' : ''} ${missing && path === projectPath ? 'missing' : ''}`}
+      data-file-path={path}
       aria-label={`打开 ${path}`}
       aria-pressed={path === selected}
       onClick={() => setSelected(path)}

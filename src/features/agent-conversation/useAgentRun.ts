@@ -28,8 +28,13 @@ export function useAgentRun(scene: number, branch: Branch, suspended: boolean) {
     if (!running || suspended || cancelled || gate || ended) return;
     const next = lesson.events[cursor];
     const firstTransfer = transferHistory(lesson, cursor).at(-1)?.id === state.last?.id;
+    const readingResult =
+      state.last?.type === 'local.tool_result' ||
+      (state.last?.type === 'local.request' && state.last.round > 1);
     const delay = Math.max(
       !reduced && firstTransfer ? flowTiming.stepHoldMs : 0,
+      readingResult ? (reduced ? flowTiming.readingHoldMs : flowTiming.resultHoldMs) : 0,
+      state.last?.type === 'response.in_progress' ? flowTiming.thinkingHoldMs : 0,
       next.type === 'local.tool_result'
         ? 1100
         : next.type.startsWith('local.') || next.type.includes('delta')

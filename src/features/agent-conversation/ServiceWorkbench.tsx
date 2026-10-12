@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { ArrowDownToLine, Braces, Check, ChevronRight, Server, Sparkles, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import type { Activity } from '../../core/agent-conversation/workbench';
@@ -6,9 +6,13 @@ import * as Dialog from '@radix-ui/react-dialog';
 import type { Item } from '../../core/agent-conversation/fixtures';
 import type { FlowState } from '../../core/agent-conversation/flow';
 import { RawData } from './RawData';
+import { useCalmMotion } from '../../components/MotionPreference';
+import { ExpandContent, RevealText, useFollowExpansion } from './ContentReveal';
+import { flowTiming } from './motionTiming';
 export function ServiceWorkbench({
   activities,
   status,
+  running,
   state,
   selectedId,
   onSelect,
@@ -19,6 +23,7 @@ export function ServiceWorkbench({
 }: {
   activities: Activity[];
   status: string;
+  running: boolean;
   state: FlowState;
   selectedId?: string;
   onSelect: (id: string) => void;
@@ -27,14 +32,18 @@ export function ServiceWorkbench({
   onDetails: (id: string) => void;
   onCloseDetails: () => void;
 }) {
+  const reduced = useCalmMotion();
   const detailTrigger = useRef<HTMLButtonElement>(null);
   const detail = activities.find((c) => c.id === detailId);
   const scroll = useRef<HTMLDivElement>(null);
   const follow = useRef(true);
+  const autoFollow = running && !selectedId;
+  useFollowExpansion(scroll, follow, !selectedId, autoFollow);
   useEffect(() => {
     const el = scroll.current;
-    if (el && follow.current && !selectedId) el.scrollTop = el.scrollHeight;
-  }, [activities, selectedId]);
+    if (!activities.length) follow.current = true;
+    if (el && (follow.current || autoFollow) && !selectedId) el.scrollTop = el.scrollHeight;
+  }, [activities, selectedId, autoFollow]);
   return (
     <aside className="workbench-service workbench-window" aria-label="服务端处理区">
       <header className="workbench-titlebar">
@@ -68,6 +77,11 @@ export function ServiceWorkbench({
         ref={scroll}
         onScroll={() => {
           const el = scroll.current!;
+          if (autoFollow) {
+            follow.current = true;
+            el.scrollTop = el.scrollHeight;
+            return;
+          }
           follow.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
         }}
       >
@@ -81,67 +95,87 @@ export function ServiceWorkbench({
           </div>
         )}
         {activities.map((card, i) => (
-          <motion.article
-            key={card.id}
-            className={`service-action service-${card.kind} ${selectedId === card.id ? 'selected' : ''}`}
-            data-flow-anchor={card.id}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <button
-              className="service-card-select"
-              aria-pressed={selectedId === card.id}
-              aria-label={`选择请求 ${card.round}：${card.title}`}
-              onClick={() => onSelect(card.id)}
-            >
-              <div className="service-action-heading">
-                <span className="service-action-icon">
-                  {card.kind === 'request' ? (
-                    <ArrowDownToLine size={14} />
-                  ) : card.kind === 'call' ? (
-                    <Braces size={14} />
-                  ) : (
-                    <Sparkles size={14} />
-                  )}
+          <Fragment key={card.id}>
+            <ExpandContent>
+              <motion.article
+                key={card.id}
+                className={`service-action service-${card.kind} ${selectedId === card.id ? 'selected' : ''}`}
+                data-flow-anchor={card.id}
+                initial={{ opacity: reduced ? 1 : 0, y: reduced ? 0 : 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: reduced ? 0 : flowTiming.content }}
+              >
+                <button
+                  className="service-card-select"
+                  aria-pressed={selectedId === card.id}
+                  aria-label={`选择请求 ${card.round}：${card.title}`}
+                  onClick={() => onSelect(card.id)}
+                >
+                  <div className="service-action-heading">
+                    <span className="service-action-icon">
+                      {card.kind === 'request' ? (
+                        <ArrowDownToLine size={14} />
+                      ) : card.kind === 'call' ? (
+                        <Braces size={14} />
+                      ) : (
+                        <Sparkles size={14} />
+                      )}
+                    </span>
+                    <strong>{card.title}</strong>
+                    <span>
+                      {card.status === '输出中' ||
+                      card.status === '参数生成中' ||
+                      card.status === '中断' ? (
+                        card.status
+                      ) : (
+                        <Check size={13} />
+                      )}
+                    </span>
+                  </div>
+                  <div className="service-action-meta">
+                    <span>请求 {card.round}</span>
+                    <span>{card.callId ?? (card.kind === 'answer' ? 'output_text' : 'input')}</span>
+                  </div>
+                  <p className="service-action-content">
+                    <RevealText
+                      delay={card.kind === 'request' ? flowTiming.arrival : 0.12}
+                      text={
+                        card.content
+                          ? card.kind === 'call'
+                            ? `read_file(${card.content.startsWith('{') ? '…' : card.content})`
+                            : card.content.slice(0, 100) + (card.content.length > 100 ? '…' : '')
+                          : '等待内容…'
+                      }
+                    />
+                  </p>
+                </button>
+                <button
+                  className="service-detail-trigger"
+                  aria-label={`查看请求 ${card.round} ${card.title}详情`}
+                  onClick={(e) => {
+                    detailTrigger.current = e.currentTarget;
+                    onDetails(card.id);
+                  }}
+                >
+                  查看详情 <ChevronRight size={12} />
+                </button>
+                <span className="service-action-number" aria-hidden="true">
+                  {String(i + 1).padStart(2, '0')}
                 </span>
-                <strong>{card.title}</strong>
-                <span>
-                  {card.status === '输出中' ||
-                  card.status === '参数生成中' ||
-                  card.status === '中断' ? (
-                    card.status
-                  ) : (
-                    <Check size={13} />
-                  )}
-                </span>
-              </div>
-              <div className="service-action-meta">
-                <span>请求 {card.round}</span>
-                <span>{card.callId ?? (card.kind === 'answer' ? 'output_text' : 'input')}</span>
-              </div>
-              <p className="service-action-content">
-                {card.content
-                  ? card.kind === 'call'
-                    ? `read_file(${card.content.startsWith('{') ? '…' : card.content})`
-                    : card.content.slice(0, 100) + (card.content.length > 100 ? '…' : '')
-                  : '等待内容…'}
-              </p>
-            </button>
-            <button
-              className="service-detail-trigger"
-              aria-label={`查看请求 ${card.round} ${card.title}详情`}
-              onClick={(e) => {
-                detailTrigger.current = e.currentTarget;
-                onDetails(card.id);
-              }}
-            >
-              查看详情 <ChevronRight size={12} />
-            </button>
-            <span className="service-action-number" aria-hidden="true">
-              {String(i + 1).padStart(2, '0')}
-            </span>
-          </motion.article>
+              </motion.article>
+            </ExpandContent>
+            {card.kind === 'request' && (
+              <ThinkingPhase
+                request={card}
+                output={activities.find((a) => a.round === card.round && a.kind !== 'request')}
+                state={state}
+                status={status}
+                running={running}
+                inspecting={Boolean(selectedId)}
+                reduced={reduced}
+              />
+            )}
+          </Fragment>
         ))}
       </div>
       <Dialog.Root
@@ -295,5 +329,75 @@ function ActivityDetail({ card, state }: { card: Activity; state: FlowState }) {
         )}
       </div>
     </>
+  );
+}
+
+function ThinkingPhase({
+  request,
+  output,
+  state,
+  status,
+  running,
+  inspecting,
+  reduced,
+}: {
+  request: Activity;
+  output?: Activity;
+  state: FlowState;
+  status: string;
+  running: boolean;
+  inspecting: boolean;
+  reduced: boolean;
+}) {
+  const current = state.requests.at(-1)?.round === request.round;
+  const started = Boolean(output) || !current || state.response !== 'waiting';
+  if (!started) return null;
+  const finished = Boolean(output);
+  const stopped = !finished && status === '已停止';
+  const paused = !finished && !stopped && !running;
+  const label = finished
+    ? '思考完成'
+    : stopped
+      ? '思考已停止'
+      : paused
+        ? '思考已暂停'
+        : 'Thinking…';
+  return (
+    <ExpandContent>
+      <details
+        className="service-thinking"
+        data-complete={finished}
+        data-paused={paused || stopped || reduced || inspecting}
+        data-round={request.round}
+      >
+        <summary>
+          {finished ? (
+            <Check size={14} aria-hidden="true" />
+          ) : (
+            <Sparkles size={14} aria-hidden="true" />
+          )}
+          <span role="status">{label}</span>
+          {!finished && !stopped && (
+            <span className="service-thinking-dots" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </span>
+          )}
+          <ChevronRight className="service-thinking-chevron" size={12} aria-hidden="true" />
+        </summary>
+        <p>
+          {finished
+            ? output?.kind === 'call'
+              ? '已发起 read_file 工具调用。'
+              : '已开始生成回答。'
+            : stopped
+              ? '本轮处理已停止。'
+              : paused
+                ? '本轮处理已暂停。'
+                : '正在处理本轮请求。'}
+        </p>
+      </details>
+    </ExpandContent>
   );
 }

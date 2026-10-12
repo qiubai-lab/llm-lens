@@ -123,6 +123,7 @@ function AgentLesson({
             <ServiceWorkbench
               activities={activities}
               status={run.phase}
+              running={run.busy && !paused}
               state={run.state}
               selectedId={selectedId}
               onSelect={(id) => setSelectedId(id === selectedId ? undefined : id)}
@@ -139,6 +140,7 @@ function AgentLesson({
                 transfer={focus}
                 inspecting={Boolean(selectedId)}
                 paused={paused || run.cancelled}
+                anchor={selectedId ?? focus.to}
               />
             )}
             {transfers.map((transfer) => (
