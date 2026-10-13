@@ -45,7 +45,7 @@ it('AC-004: 发送、调用、执行、结果、续请求和正文连接对应�
   });
   for (const kind of ['request', 'call', 'execute', 'result', 'continuation', 'text'])
     expect(transfers.some((t) => t.kind === kind)).toBe(true);
-  expect(transfers.find((t) => t.kind === 'result')?.from).toBe('terminal-call_skill');
+  expect(transfers.find((t) => t.kind === 'result')?.from).toBe('tool-call_skill');
   expect(transfers.find((t) => t.kind === 'continuation')?.from).toBe('agent-result-call_skill');
   expect(transfers.find((t) => t.kind === 'call')?.to).toBe('agent-call-call_skill');
 });
@@ -55,14 +55,14 @@ it('AC-003: 选中工具卡恢复三段关联，待读取不冒充已执行', ()
   const ready = lesson.events.findIndex((e) => e.type === 'local.tool_start');
   const before = replay(lesson, ready);
   const pending = activityTransfers(lesson, ready, 'server-call-call_skill');
-  expect(pending.map((t) => t.kind)).toEqual(['call', 'execute']);
-  expect(pending[1].pending).toBe(true);
-  expect(pending[1].label).toBe('待读取');
+  expect(pending.map((t) => t.kind)).toEqual(['call', 'dispatch', 'execute']);
+  expect(pending[2].pending).toBe(true);
+  expect(pending[2].label).toBe('待读取');
   expect(replay(lesson, ready)).toEqual(before);
   const links = activityTransfers(lesson, lesson.events.length, 'server-call-call_skill');
-  expect(links.map((t) => t.kind)).toEqual(['call', 'execute', 'result']);
-  expect(links[1].to).toBe('file-skills/project-summary/SKILL.md');
-  expect(links[2].from).toBe('terminal-call_skill');
+  expect(links.map((t) => t.kind)).toEqual(['call', 'dispatch', 'execute', 'result']);
+  expect(links[2].to).toBe('file-skills/project-summary/SKILL.md');
+  expect(links[3].from).toBe('tool-call_skill');
   expect(replay(lesson, lesson.events.length).executionCount).toBe(2);
 });
 it('AC-003: 请求/工具结果/回答卡恢复对应聊天连接', () => {
@@ -79,14 +79,16 @@ it('AC-003: 请求/工具结果/回答卡恢复对应聊天连接', () => {
 it('AC-001: 累计连接按首次语义传递编号，增量不重复，前缀稳定', () => {
   const lesson = createLesson(5, 'normal');
   const end = transferHistory(lesson, lesson.events.length);
-  expect(end.map((t) => t.sequence)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  expect(end.map((t) => t.sequence)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
   expect(end.map((t) => t.kind)).toEqual([
     'request',
     'call',
+    'dispatch',
     'execute',
     'result',
     'continuation',
     'call',
+    'dispatch',
     'execute',
     'result',
     'continuation',
@@ -102,8 +104,9 @@ it('AC-001: 累计连接按首次语义传递编号，增量不重复，前缀�
 it('AC-001: 失败结果标签与中断历史不冒充额外执行', () => {
   const failed = createLesson(5, 'file-error');
   expect(
-    transferHistory(failed, failed.events.length).find((t) => t.from === 'terminal-call_file')
-      ?.label,
+    transferHistory(failed, failed.events.length).find(
+      (t) => t.kind === 'result' && t.from === 'tool-call_file',
+    )?.label,
   ).toBe('返回错误');
   const interrupted = createLesson(5, 'interrupted');
   expect(

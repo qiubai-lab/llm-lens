@@ -1,13 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
-import { createLesson, type Branch } from '../../core/agent-conversation/fixtures';
+import { createLesson, type Branch, type Task } from '../../core/agent-conversation/fixtures';
+import { toolInfo } from '../../core/agent-conversation/tools';
 import { replay } from '../../core/agent-conversation/flow';
 import { useCalmMotion } from '../../components/MotionPreference';
 import { flowTiming } from './motionTiming';
 import { transferHistory, interactionGate } from '../../core/agent-conversation/workbench';
 
-export function useAgentRun(scene: number, branch: Branch, suspended: boolean) {
+export function useAgentRun(
+  scene: number,
+  branch: Branch,
+  suspended: boolean,
+  task: Task = 'summary',
+) {
   const reduced = useCalmMotion();
-  const lesson = useMemo(() => createLesson(scene, branch), [scene, branch]);
+  const lesson = useMemo(() => createLesson(scene, branch, task), [scene, branch, task]);
   const [cursor, setCursor] = useState(0);
   const [running, setRunning] = useState(false);
   const [cancelled, setCancelled] = useState(false);
@@ -79,10 +85,10 @@ export function useAgentRun(scene: number, branch: Branch, suspended: boolean) {
           ? '请求已送达'
           : '任务完成'
       : gate
-        ? '等待执行读取'
+        ? `等待${toolInfo(gate.name)?.execute ?? '执行工具'}`
         : busy
           ? state.calls.some((c) => c.status === 'running')
-            ? '读取中'
+            ? '工具执行中'
             : '处理中'
           : cursor
             ? '已暂停'

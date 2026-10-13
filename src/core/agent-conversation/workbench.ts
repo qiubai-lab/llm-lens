@@ -1,6 +1,7 @@
 // Teaching interaction/visual mapping; see the topic TECHNICAL_DESIGN.md §5.
 import type { Lesson } from './fixtures';
 import { replay, type Call } from './flow';
+import { toolInfo, summaryPath } from './tools';
 export function interactionGate(lesson: Lesson, cursor: number): Call | undefined {
   const next = lesson.events[cursor];
   if (next?.type !== 'local.tool_start') return;
@@ -16,6 +17,7 @@ export type Activity = {
   content: string;
   status: string;
   callId?: string;
+  toolName?: string;
   detail: unknown;
 };
 export function buildActivities(lesson: Lesson, cursor: number): Activity[] {
@@ -39,6 +41,7 @@ export function buildActivities(lesson: Lesson, cursor: number): Activity[] {
       cards.push({
         id: `server-call-${call.callId}`,
         callId: call.callId,
+        toolName: call.name,
         round: request.round,
         kind: 'call',
         title: '提出工具调用',
@@ -73,7 +76,7 @@ export function buildActivities(lesson: Lesson, cursor: number): Activity[] {
 }
 export type Transfer = {
   id: string;
-  kind: 'request' | 'call' | 'execute' | 'result' | 'continuation' | 'text';
+  kind: 'request' | 'call' | 'dispatch' | 'execute' | 'result' | 'continuation' | 'text';
   from: string;
   to: string;
   fromArea: 'chat' | 'local' | 'server';
@@ -82,6 +85,24 @@ export type Transfer = {
   tone: 'blue' | 'purple' | 'green';
   pending?: boolean;
 };
+function operationTarget(call: Call, state: ReturnType<typeof replay>) {
+  const directory =
+    call.name === 'list_directory' ||
+    (call.name === 'write_file' &&
+      call.path === summaryPath &&
+      !Object.hasOwn(state.files, summaryPath));
+  return directory
+    ? `directory-${call.name === 'write_file' ? 'notes' : call.path}`
+    : `file-${call.path}`;
+}
+const operationLabel = (call: Call, pending = false) =>
+  pending
+    ? call.name === 'write_file'
+      ? '待写入'
+      : call.name === 'list_directory'
+        ? '待列目录'
+        : '待读取'
+    : (toolInfo(call.name)?.label ?? '执行工具');
 export function currentTransfer(lesson: Lesson, cursor: number): Transfer | undefined {
   const state = replay(lesson, cursor);
   for (const event of lesson.events.slice(0, cursor).reverse()) {
@@ -114,22 +135,36 @@ export function currentTransfer(lesson: Lesson, cursor: number): Transfer | unde
         label: '调用工具',
         tone: 'purple',
       };
+    if (event.type === 'response.completed') {
+      const ready = state.calls.find((c) => c.round === event.round && c.status === 'ready');
+      if (ready)
+        return {
+          ...base,
+          kind: 'dispatch',
+          from: `agent-call-${ready.callId}`,
+          to: `tool-${ready.callId}`,
+          fromArea: 'chat',
+          toArea: 'local',
+          label: '调度工具',
+          tone: 'purple',
+        };
+    }
     if (event.type === 'local.tool_start' && call)
       return {
         ...base,
         kind: 'execute',
-        from: `agent-call-${call.callId}`,
-        to: `file-${call.path}`,
-        fromArea: 'chat',
+        from: `tool-${call.callId}`,
+        to: operationTarget(call, state),
+        fromArea: 'local',
         toArea: 'local',
-        label: call.callId === 'call_skill' ? '加载 Skill' : '读取文件',
+        label: operationLabel(call),
         tone: 'purple',
       };
     if (event.type === 'local.tool_result' && call)
       return {
         ...base,
         kind: 'result',
-        from: `terminal-${call.callId}`,
+        from: `tool-${call.callId}`,
         to: `agent-result-${call.callId}`,
         fromArea: 'local',
         toArea: 'chat',
@@ -196,12 +231,21 @@ export function activityTransfers(lesson: Lesson, cursor: number, cardId: string
     const pending = call.status === 'ready' || call.status === 'assembling';
     links.push(
       link(
-        'execute',
+        'dispatch',
         `agent-call-${call.callId}`,
-        `file-${call.path}`,
+        `tool-${call.callId}`,
         'chat',
         'local',
-        pending ? '待读取' : call.callId === 'call_skill' ? '加载 Skill' : '读取文件',
+        '调度工具',
+        'purple',
+      ),
+      link(
+        'execute',
+        `tool-${call.callId}`,
+        operationTarget(call, state),
+        'local',
+        'local',
+        operationLabel(call, pending),
         'purple',
         pending,
       ),
@@ -210,7 +254,7 @@ export function activityTransfers(lesson: Lesson, cursor: number, cardId: string
       links.push(
         link(
           'result',
-          `terminal-${call.callId}`,
+          `tool-${call.callId}`,
           `agent-result-${call.callId}`,
           'local',
           'chat',
@@ -230,6 +274,7 @@ export function transferHistory(lesson: Lesson, cursor: number): NumberedTransfe
   const types = new Set([
     'local.request',
     'response.function_call_arguments.done',
+    'response.completed',
     'local.tool_start',
     'local.tool_result',
     'response.output_text.delta',
@@ -244,4 +289,44 @@ export function transferHistory(lesson: Lesson, cursor: number): NumberedTransfe
     history.push({ ...transfer, sequence: history.length + 1 });
   });
   return history;
+}
+
+// Reading a past step reconstructs its event prefix; it never runs an operation.
+export function activitySnapshot(lesson: Lesson, cursor: number, cardId: string) {
+  const card = buildActivities(lesson, cursor).find((c) => c.id === cardId);
+  if (!card) return replay(lesson, cursor);
+  if (card.kind === 'request') {
+    const index = lesson.events.findIndex(
+      (e) => e.type === 'local.request' && e.round === card.round,
+    );
+    return replay(lesson, Math.min(cursor, index + 1));
+  }
+  const next = lesson.events.findIndex((e) => e.type === 'local.request' && e.round > card.round);
+  return replay(lesson, next < 0 ? cursor : Math.min(cursor, next));
+}
+
+export function visibleTransfers(
+  lesson: Lesson,
+  cursor: number,
+  selectedId?: string,
+): NumberedTransfer[] {
+  const history = transferHistory(lesson, cursor);
+  const numbered = transferHistory(lesson, lesson.events.length);
+  const state = replay(lesson, cursor);
+  const cards = buildActivities(lesson, cursor);
+  const current = cards.at(-1);
+  const id =
+    selectedId ?? (state.task === 'active' && current?.kind === 'call' ? current.id : undefined);
+  const associated = id ? activityTransfers(lesson, cursor, id) : [];
+  const visible = history.filter((t) => t.fromArea !== 'local' && t.toArea !== 'local');
+  for (const transfer of associated) {
+    if (transfer.fromArea !== 'local' && transfer.toArea !== 'local') continue;
+    const match = numbered.find((t) => transferKey(t) === transferKey(transfer));
+    // New files connect to their parent until creation; the call still owns its original sequence.
+    const sequence =
+      match?.sequence ??
+      numbered.find((t) => t.kind === transfer.kind && t.from === transfer.from)?.sequence;
+    if (sequence) visible.push({ ...transfer, sequence });
+  }
+  return visible;
 }

@@ -209,110 +209,161 @@
   color: var(--blue);
   font-weight: 600;
 }
-.workbench-terminal {
-  height: 13rem;
-  flex: 0 0 13rem;
-  background: var(--surface-terminal);
-  color: var(--text-body);
+.workbench-tools {
+  flex: 0 0 19rem;
+  height: 19rem;
+  min-width: 0;
+  min-height: 0;
+  margin: 32px 12px 12px;
+  background: var(--surface-inset);
+  border: 1px solid var(--line);
+  border-radius: 9px;
   display: flex;
   flex-direction: column;
-  margin: 12px;
-  border-radius: 9px;
-  border: 1px solid var(--line);
-  box-shadow: 0 2px 8px var(--shadow-color);
-  min-width: 0;
 }
-.terminal-title {
+.tools-title {
   display: flex;
-  gap: 6px;
   align-items: center;
-  padding: 10px 11px;
-  border-bottom: 1px solid var(--ink);
+  gap: 6px;
+  padding: 8px 10px;
   color: var(--muted);
   font-size: var(--font-size-meta);
+  border-bottom: 1px solid var(--line);
 }
-.terminal-title strong {
+.tools-title strong {
   font-weight: 500;
 }
-.terminal-title > span {
+.tools-title > span {
   margin-left: auto;
-  color: var(--muted);
 }
-.terminal-scroll {
-  flex: 1;
+.tools-body {
+  padding: 8px;
+  min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 11px;
-  min-width: 0;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+.tool-zone-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  color: var(--muted);
   font-size: var(--font-size-meta);
-  line-height: 1.8;
+  margin-bottom: 5px;
 }
-.terminal-idle > span {
-  color: var(--green);
-}
-.terminal-idle p {
-  margin-top: 5px;
-  color: var(--muted);
-}
-.terminal-caret {
-  width: 5px;
-  height: 11px;
-  background: var(--muted);
-  display: inline-block;
-  vertical-align: middle;
-  margin-left: 3px;
-}
-.terminal-entry + .terminal-entry {
-  margin-top: 14px;
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
-}
-.terminal-command {
-  white-space: pre-wrap;
+.tool-zone-label span {
   overflow-wrap: anywhere;
 }
-.terminal-command > span:first-child {
-  color: var(--green);
+.tool-execution {
+  height: 8rem;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 7px;
+  background: var(--surface-raised);
+  margin-bottom: 8px;
 }
-.terminal-path {
-  color: var(--muted);
-}
-.terminal-success {
-  color: var(--green);
-  margin-top: 4px;
-}
-.terminal-error {
-  color: var(--danger);
-  margin-top: 4px;
-}
-.terminal-muted {
-  color: var(--muted);
-  margin-top: 3px;
-}
-.terminal-entry pre {
-  margin: 8px 0 0;
-  font: inherit;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+.tool-item {
+  min-width: 0;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface-panel);
+  font-size: var(--font-size-meta);
   color: var(--text-body);
 }
-.terminal-action-slot {
+.tool-item-heading {
   display: flex;
-  justify-content: flex-end;
-  min-height: 2.4rem;
-  padding: 0 9px 8px;
-}
-.terminal-run {
-  display: inline-flex;
-  gap: 5px;
   align-items: center;
-  padding: 5px 8px;
+  gap: 6px;
+}
+.tool-item-heading > svg {
+  flex: 0 0 auto;
+  color: var(--blue);
+}
+.tool-item-heading strong {
+  font-weight: 500;
+}
+.tool-item-heading > span {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--green);
+}
+.tool-item-executing {
+  border-color: var(--border-success);
+}
+.tool-target {
+  display: block;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  margin-top: 5px;
+}
+.tool-output {
+  margin: 5px 0 0;
+  max-height: 2.6em;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.tool-waiting,
+.tool-idle {
+  margin: 8px 0 0;
+  color: var(--muted);
   font-size: var(--font-size-meta);
+}
+.tool-idle {
+  padding: 18px 7px;
+}
+.tool-candidates > div + div {
+  margin-top: 4px;
+}
+.tool-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-subtle);
+  border-style: dashed;
+  background: transparent;
+}
+.tool-placeholder small {
+  margin-left: auto;
+  font: inherit;
+}
+.tool-run {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   color: var(--green);
   background: var(--green-soft);
   border: 1px solid var(--border-success);
   border-radius: 5px;
+  padding: 4px 7px;
+  margin-top: 6px;
+  font-size: var(--font-size-meta);
+}
+.tool-item-heading > .tool-error,
+.tool-error {
+  color: var(--danger);
+}
+.composer-task {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: var(--font-size-meta);
+  margin-bottom: 8px;
+}
+.composer-task select {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--text-body);
+  background: var(--surface-inset);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font: inherit;
+  padding: 3px 5px;
 }
 .workbench-local-footer {
   display: flex;
@@ -1107,15 +1158,15 @@
   }
   .workbench-local {
     grid-row: 2;
-    height: 32rem;
+    height: 41rem;
   }
   .workbench-service {
     grid-row: 3;
     height: 28rem;
   }
-  .workbench-terminal {
-    height: 12rem;
-    flex-basis: 12rem;
+  .workbench-tools {
+    height: 19rem;
+    flex-basis: 19rem;
   }
   .agent-deck .deck-heading {
     flex-wrap: wrap;
@@ -1196,10 +1247,17 @@
   .workbench-editor {
     border-left: 0;
   }
-  .workbench-terminal {
-    height: 12rem;
-    flex-basis: 12rem;
-    margin: 10px;
+  .workbench-tools {
+    height: 19rem;
+    flex-basis: 19rem;
+    margin: 32px 10px 10px;
+  }
+  .tool-item-heading {
+    flex-wrap: wrap;
+  }
+  .tool-item-heading > span {
+    flex-basis: 100%;
+    margin-left: 0;
   }
   .workbench-titlebar {
     flex-wrap: wrap;
@@ -1313,6 +1371,11 @@ html[data-reduced-motion='true'] .flow-path {
   visibility: hidden;
   padding-inline: 18px 4px;
   white-space: nowrap;
+}
+.tree-file-width-reserve {
+  display: block;
+  /* Reserve file padding, icon, gaps, status and border before summary.md exists. */
+  padding-left: 37px;
 }
 .workbench-file .file-status-slot {
   flex: 0 0 12px;
@@ -1585,7 +1648,7 @@ html[data-reduced-motion='true'] .flow-path {
 }
 @media (max-width: 1179px) {
   .agent-stage {
-    row-gap: max(252px, calc(10rem + 72px));
+    row-gap: max(252px, calc(var(--server-flow-count, 6) * (2rem + 10px)));
   }
 }
 

@@ -74,7 +74,9 @@ export function FlowConnections({
         // Only local tools have a fallback port. Chat and server links must
         // point to visible content, rather than collecting at a pane edge.
         const fallbackRect = () =>
-          area === 'local' ? fallback?.getBoundingClientRect() : undefined;
+          area === 'local' && !(transfer.fromArea === 'local' && transfer.toArea === 'local')
+            ? fallback?.getBoundingClientRect()
+            : undefined;
         if (!el) return fallbackRect();
         const rect = el.getBoundingClientRect();
         let top = rect.top,
@@ -108,6 +110,30 @@ export function FlowConnections({
         return;
       }
       setVisible(true);
+      if (transfer.fromArea === 'local' && transfer.toArea === 'local') {
+        removeLabel();
+        const local = stage.querySelector('.workbench-local')!.getBoundingClientRect();
+        const tools = stage.querySelector('.workbench-tools')!.getBoundingClientRect();
+        const from = { x: a.right - root.left, y: a.top - root.top + 36 };
+        const to = { x: b.right - root.left, y: b.top - root.top + b.height / 2 };
+        // On stacked narrow layouts, use the window edge so the line cannot cross editor text.
+        const rail = window.innerWidth < 760 ? local.right - root.left - 7 : to.x + 10;
+        const gapY = tools.top - root.top - 16;
+        const d = `M ${from.x} ${from.y} Q ${from.x + 8} ${from.y}, ${from.x + 8} ${from.y - 8} L ${from.x + 8} ${gapY + 6} Q ${from.x + 8} ${gapY}, ${from.x + 2} ${gapY} L ${rail + 6} ${gapY} Q ${rail} ${gapY}, ${rail} ${gapY - 6} L ${rail} ${to.y + 6} Q ${rail} ${to.y}, ${rail - 6} ${to.y} L ${to.x} ${to.y}`;
+        const measured = labelMeasure.current?.getBoundingClientRect();
+        const width = Math.max(76, (measured?.width ?? 56) + 20);
+        const height = Math.max(26, (measured?.height ?? 18) + 8);
+        setGeometry({
+          d,
+          from,
+          to,
+          width,
+          height,
+          x: Math.min(local.right - root.left - width / 2 - 12, (rail + from.x) / 2),
+          y: gapY,
+        });
+        return;
+      }
       const vertical = window.innerWidth < 1180;
       const forward = vertical ? a.top < b.top : a.left < b.left;
       const from = vertical
@@ -232,16 +258,16 @@ export function FlowConnections({
     };
   }, [transfer, laneIndex, laneCount, label, markerId, sequence]);
   const tone = transfer?.tone ?? 'blue';
-  const animate = reveal && !reduced;
+  const animate = reveal && !reduced && !transfer?.pending;
   const arrive = animate ? { duration: 0.12, delay: flowTiming.lineArrival } : { duration: 0 };
-  const key = `${transfer?.kind}-${transfer?.from}-${transfer?.to}`;
+  const key = `${transfer?.kind}-${transfer?.from}-${transfer?.to}-${Boolean(transfer?.pending)}`;
   return (
     <>
       <span className="flow-label-measure" ref={labelMeasure} aria-hidden="true">
         {label}
       </span>
       <svg
-        className={`flow-connections flow-${tone} ${reduced || !active ? 'flow-static' : ''} ${emphasized ? '' : 'flow-history'}`}
+        className={`flow-connections flow-${tone} ${reduced || !active || transfer?.pending ? 'flow-static' : ''} ${emphasized ? '' : 'flow-history'}`}
         ref={layer}
         aria-hidden="true"
         data-sequence={sequence}
@@ -283,9 +309,7 @@ export function FlowConnections({
                 initial={{ pathLength: animate ? 0 : 1 }}
                 animate={{ pathLength: 1 }}
                 transition={
-                  animate
-                    ? { duration: flowTiming.draw, ease: 'linear' }
-                    : { duration: 0 }
+                  animate ? { duration: flowTiming.draw, ease: 'linear' } : { duration: 0 }
                 }
               />
             )}

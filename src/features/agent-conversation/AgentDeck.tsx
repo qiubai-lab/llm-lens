@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
-import { agentTopic, type Branch } from '../../core/agent-conversation/fixtures';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { agentTopic, type Branch, type Task } from '../../core/agent-conversation/fixtures';
 import {
   activityTransfers,
   buildActivities,
   transferHistory,
   transferKey,
+  visibleTransfers,
+  activitySnapshot,
 } from '../../core/agent-conversation/workbench';
 import { useAgentRun } from './useAgentRun';
 import { AgentChat } from './AgentChat';
@@ -14,21 +16,35 @@ import { RegionFocus } from './RegionFocus';
 import { FlowConnections } from './FlowConnections';
 export function AgentDeck({ suspended }: { suspended: boolean }) {
   const [branch, setBranch] = useState<Branch>('normal');
-  return <AgentLesson key={branch} branch={branch} onBranch={setBranch} suspended={suspended} />;
+  const [task, setTask] = useState<Task>('summary');
+  return (
+    <AgentLesson
+      key={`${branch}-${task}`}
+      branch={branch}
+      onBranch={setBranch}
+      task={task}
+      onTask={setTask}
+      suspended={suspended}
+    />
+  );
 }
 function AgentLesson({
   branch,
   onBranch,
   suspended,
+  task,
+  onTask,
 }: {
   branch: Branch;
   onBranch: (b: Branch) => void;
   suspended: boolean;
+  task: Task;
+  onTask: (task: Task) => void;
 }) {
   const [selectedId, setSelectedId] = useState<string>();
   const [detailId, setDetailId] = useState<string>();
   const paused = suspended || Boolean(detailId);
-  const run = useAgentRun(5, branch, paused);
+  const run = useAgentRun(5, branch, paused, task);
   const activities = useMemo(
     () => buildActivities(run.lesson, run.cursor),
     [run.lesson, run.cursor],
@@ -43,20 +59,25 @@ function AgentLesson({
     () => (selectedId ? activityTransfers(run.lesson, run.cursor, selectedId) : []),
     [run.lesson, run.cursor, selectedId],
   );
-  const transfers = [...history];
-  for (const preview of related) {
-    if (!history.some((t) => transferKey(t) === transferKey(preview))) {
-      const sequence = completeHistory.find(
-        (t) => transferKey(t) === transferKey(preview),
-      )?.sequence;
-      if (sequence) transfers.push({ ...preview, sequence });
-    }
-  }
+  const transfers = useMemo(
+    () => visibleTransfers(run.lesson, run.cursor, selectedId),
+    [run.lesson, run.cursor, selectedId],
+  );
   const focus = selectedId ? related[0] : history.at(-1);
   const relatedKeys = new Set(related.map(transferKey));
   const side = (t: (typeof history)[number]) =>
     t.fromArea === 'local' || t.toArea === 'local' ? 'local' : 'server';
-  const inspectionPath = run.state.calls.find((c) => c.callId === card?.callId)?.path;
+  const displayState = useMemo(
+    () => (selectedId ? activitySnapshot(run.lesson, run.cursor, selectedId) : run.state),
+    [run.lesson, run.cursor, run.state, selectedId],
+  );
+  const currentCard = card ?? activities.at(-1);
+  const toolCall =
+    currentCard?.callId &&
+    (selectedId || (run.state.task === 'active' && currentCard.kind === 'call'))
+      ? displayState.calls.find((c) => c.callId === currentCard.callId)
+      : undefined;
+  const inspectionPath = toolCall?.path;
   useEffect(() => {
     if (!selectedId) return;
     const anchors = related.filter((t) => t.fromArea === 'chat' || t.toArea === 'chat');
@@ -89,6 +110,11 @@ function AgentLesson({
         <div className="agent-stage-content">
           <div
             className="agent-stage"
+            style={
+              {
+                '--server-flow-count': completeHistory.filter((t) => side(t) === 'server').length,
+              } as CSSProperties
+            }
             data-related-areas={
               selectedId
                 ? Array.from(new Set(related.flatMap((t) => [t.fromArea, t.toArea]))).join(' ')
@@ -96,13 +122,17 @@ function AgentLesson({
             }
           >
             <LocalWorkbench
-              state={run.state}
+              state={displayState}
               gate={run.cancelled || paused ? undefined : run.gate}
               onExecute={() => act(run.execute)}
               branch={branch}
               onBranch={onBranch}
               canConfigure={!run.busy}
               inspectionPath={inspectionPath}
+              toolCall={toolCall}
+              inspecting={Boolean(selectedId)}
+              frozen={paused || run.cancelled || !run.busy}
+              stopped={run.cancelled}
             />
             <AgentChat
               state={run.state}
@@ -119,6 +149,8 @@ function AgentLesson({
               onReset={() => act(run.reset)}
               interrupt={branch === 'interrupted'}
               onInterrupt={() => onBranch(branch === 'interrupted' ? 'normal' : 'interrupted')}
+              task={task}
+              onTask={onTask}
             />
             <ServiceWorkbench
               activities={activities}
@@ -141,6 +173,7 @@ function AgentLesson({
                 inspecting={Boolean(selectedId)}
                 paused={paused || run.cancelled}
                 anchor={selectedId ?? focus.to}
+                relatedAnchors={selectedId ? related.flatMap((t) => [t.from, t.to]) : undefined}
               />
             )}
             {transfers.map((transfer) => (
@@ -148,10 +181,20 @@ function AgentLesson({
                 key={transferKey(transfer)}
                 transfer={transfer}
                 sequence={transfer.sequence}
-                laneIndex={completeHistory
-                  .filter((t) => side(t) === side(transfer))
+                laneIndex={(side(transfer) === 'local' ? transfers : completeHistory)
+                  .filter(
+                    (t) =>
+                      side(t) === side(transfer) &&
+                      !(t.fromArea === 'local' && t.toArea === 'local'),
+                  )
                   .findIndex((t) => transferKey(t) === transferKey(transfer))}
-                laneCount={completeHistory.filter((t) => side(t) === side(transfer)).length}
+                laneCount={
+                  (side(transfer) === 'local' ? transfers : completeHistory).filter(
+                    (t) =>
+                      side(t) === side(transfer) &&
+                      !(t.fromArea === 'local' && t.toArea === 'local'),
+                  ).length
+                }
                 emphasized={
                   selectedId
                     ? relatedKeys.has(transferKey(transfer))

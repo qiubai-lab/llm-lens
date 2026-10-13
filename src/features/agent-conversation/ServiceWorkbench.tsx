@@ -142,7 +142,7 @@ export function ServiceWorkbench({
                       text={
                         card.content
                           ? card.kind === 'call'
-                            ? `read_file(${card.content.startsWith('{') ? '…' : card.content})`
+                            ? `${card.toolName}(${card.content.startsWith('{') ? '…' : card.content})`
                             : card.content.slice(0, 100) + (card.content.length > 100 ? '…' : '')
                           : '等待内容…'
                       }
@@ -251,7 +251,11 @@ function ActivityDetail({ card, state }: { card: Activity; state: FlowState }) {
             </section>
             <section>
               <h3>参数</h3>
-              <pre>{call?.path ? `path: ${call.path}` : call?.arguments || '参数生成中…'}</pre>
+              <pre>
+                {call?.input
+                  ? JSON.stringify(call.input, null, 2)
+                  : call?.arguments || '参数生成中…'}
+              </pre>
             </section>
             <section>
               <h3>
@@ -259,7 +263,7 @@ function ActivityDetail({ card, state }: { card: Activity; state: FlowState }) {
                 {call?.status === 'ready'
                   ? '等待执行'
                   : call?.status === 'failed'
-                    ? '读取失败'
+                    ? '执行失败'
                     : call?.result !== undefined
                       ? '已返回'
                       : '尚未返回'}
@@ -389,7 +393,7 @@ function ThinkingPhase({
         <p>
           {finished
             ? output?.kind === 'call'
-              ? '已发起 read_file 工具调用。'
+              ? `已发起 ${output.toolName} 工具调用。`
               : '已开始生成回答。'
             : stopped
               ? '本轮处理已停止。'

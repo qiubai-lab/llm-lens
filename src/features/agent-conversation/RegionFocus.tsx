@@ -13,11 +13,13 @@ export function RegionFocus({
   inspecting,
   paused,
   anchor,
+  relatedAnchors,
 }: {
   transfer: Transfer;
   inspecting: boolean;
   paused: boolean;
   anchor: string;
+  relatedAnchors?: string[];
 }) {
   const layer = useRef<HTMLDivElement>(null);
   const reduced = useCalmMotion();
@@ -36,8 +38,19 @@ export function RegionFocus({
       const target = Array.from(stage.querySelectorAll('[data-flow-anchor]')).find(
         (el) => el.getAttribute('data-flow-anchor') === anchor,
       );
-      const targets = target ? [target] : [];
-      if (!inspecting && transfer.toArea === 'local' && transfer.kind === 'execute') {
+      const targets = relatedAnchors
+        ? Array.from(stage.querySelectorAll('[data-flow-anchor]')).filter((el) =>
+            relatedAnchors.includes(el.getAttribute('data-flow-anchor')!),
+          )
+        : target
+          ? [target]
+          : [];
+      if (
+        !inspecting &&
+        transfer.toArea === 'local' &&
+        transfer.kind === 'execute' &&
+        transfer.to.startsWith('file-')
+      ) {
         const editor = stage.querySelector('.workbench-editor');
         if (editor && !targets.includes(editor)) targets.push(editor);
         const file = Array.from(stage.querySelectorAll('[data-file-path]')).find(
@@ -54,7 +67,7 @@ export function RegionFocus({
     }
     const timer = window.setTimeout(apply, flowTiming.arrival * 1000);
     return () => window.clearTimeout(timer);
-  }, [identity, anchor, reduced, inspecting, paused, transfer.tone]);
+  }, [identity, anchor, reduced, inspecting, paused, transfer.tone, relatedAnchors]);
   useLayoutEffect(
     () => () => {
       highlighted.current.forEach((el) => el.removeAttribute('data-flow-focused'));

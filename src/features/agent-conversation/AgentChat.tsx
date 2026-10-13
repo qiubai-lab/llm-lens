@@ -20,14 +20,9 @@ import { RawData } from './RawData';
 import { useCalmMotion } from '../../components/MotionPreference';
 import { contentEntrance, ExpandContent, RevealText, useFollowExpansion } from './ContentReveal';
 import { flowTiming } from './motionTiming';
-import { toolDefinition } from '../../core/agent-conversation/fixtures';
-const labels = {
-  assembling: '接收参数',
-  ready: '等待执行',
-  running: '正在读取',
-  succeeded: '已读取',
-  failed: '读取失败',
-};
+import type { Task } from '../../core/agent-conversation/fixtures';
+import { toolDefinitions, toolInfo, toolStatus } from '../../core/agent-conversation/tools';
+import { ToolIcon } from './ToolWorkbench';
 export function AgentChat({
   state,
   question,
@@ -43,6 +38,8 @@ export function AgentChat({
   onReset,
   interrupt,
   onInterrupt,
+  task,
+  onTask,
 }: {
   state: FlowState;
   question: string;
@@ -58,9 +55,11 @@ export function AgentChat({
   onReset: () => void;
   interrupt?: boolean;
   onInterrupt?: () => void;
+  task: Task;
+  onTask: (task: Task) => void;
 }) {
   const reduced = useCalmMotion();
-  const availableTools = state.requests.at(-1)?.body.tools ?? [toolDefinition];
+  const availableTools = state.requests.at(-1)?.body.tools ?? toolDefinitions;
   const scroll = useRef<HTMLDivElement>(null);
   const follow = useRef(true);
   useFollowExpansion(scroll, follow);
@@ -161,14 +160,16 @@ export function AgentChat({
                     {call.status === 'running' ? (
                       <LoaderCircle className="agent-tool-spinner" size={15} />
                     ) : (
-                      <FileText size={15} />
+                      <ToolIcon name={call.name} size={15} />
                     )}
                   </span>
                   <span>
                     <strong>
-                      {call.callId === 'call_skill' ? '加载项目摘要 Skill' : '读取项目文件'}
+                      {call.callId === 'call_skill'
+                        ? '加载项目摘要 Skill'
+                        : (toolInfo(call.name)?.label ?? '调用工具')}
                     </strong>
-                    <small>{call.path ?? 'read_file · 参数接收中'}</small>
+                    <small>{call.path ?? `${call.name} · 参数接收中`}</small>
                   </span>
                   <span
                     className={`agent-call-status ${call.status === 'failed' ? 'agent-error' : ''}`}
@@ -190,10 +191,10 @@ export function AgentChat({
                         <CircleAlert size={12} aria-hidden="true" />
                       )}
                       {call.status === 'running' && cancelled
-                        ? '读取已停止'
+                        ? '执行已停止'
                         : call.status === 'running' && (!busy || suspended)
-                          ? '读取已暂停'
-                          : labels[call.status]}
+                          ? '执行已暂停'
+                          : toolStatus(call)}
                     </motion.span>
                   </span>
                   <ChevronDown size={13} />
@@ -235,7 +236,9 @@ export function AgentChat({
                     disabled={suspended || cancelled}
                   >
                     <Play size={13} />
-                    {call.callId === 'call_skill' ? '加载 Skill' : '执行读取'}
+                    {call.callId === 'call_skill'
+                      ? '加载 Skill'
+                      : (toolInfo(call.name)?.execute ?? '执行工具')}
                     <span>→ 工作区</span>
                   </button>
                 ) : (
@@ -317,6 +320,18 @@ export function AgentChat({
           if (!busy) onSend();
         }}
       >
+        <label className="composer-task">
+          <span>预设任务</span>
+          <select
+            aria-label="选择预设任务"
+            value={task}
+            disabled={busy || suspended}
+            onChange={(e) => onTask(e.target.value as Task)}
+          >
+            <option value="summary">读取并总结</option>
+            <option value="save-summary">整理并保存</option>
+          </select>
+        </label>
         <label htmlFor="agent-question" className="sr-only">
           当前场景问题
         </label>

@@ -18,6 +18,8 @@
 - `src/features/agent-conversation/AgentDeck.tsx`：Agent 单一完整工作台、发送/读取、历史卡片关联与详情 dialog 组合入口。
 - `src/core/agent-conversation/flow.ts`：纯事件归并与历史重建，不执行工具。
 - `src/core/agent-conversation/workbench.ts`：事件到行为卡、累计传递序号/端点及交互门槛的纯映射。
+- `src/core/agent-conversation/tools.ts`：三个教学工具的 schema、元信息、参数/路径校验及模拟结果；不访问真实文件。
+- `src/features/agent-conversation/ToolWorkbench.tsx`：候选工具与固定执行位、工具提升动画、历史调用视图；不执行文件操作。
 - `src/features/agent-conversation/motionTiming.ts`：教学焦点/绘入/主要步骤停留时间，供视图与事件推进定时器共用。
 - `src/features/agent-conversation/ContentReveal.tsx`：共享内容渐显、逐行呈现、实际高度展开与底部跟随；减少动态效果立即显示，历史查看不重播。
 - `src/features/agent-conversation/RegionFocus.tsx`：连线抵达后的接收区域覆盖框滑动与目标区块高亮，不参与执行或窗口布局。
@@ -36,8 +38,8 @@
 
 - `src/app/` 负责首页与专注页导航、全站浮层；不实现采样规则。
 - `src/features/token/` 负责 Token 场景组合、局部状态、舞台对比与响应式操作区；不承载其他主题。
-- `src/features/agent-conversation/` 负责 Agent 对话、文件管理/工具终端、服务端行为卡、连线与发送驱动控制器；不负责协议事实或真实执行。
-- `src/core/agent-conversation/` 负责预设文件/事件、调用参数校验及纯状态重建；不读取真实文件或网络。
+- `src/features/agent-conversation/` 负责 Agent 对话、文件管理/工具调度区、服务端行为卡、内部/跨窗口连线与发送驱动控制器；不负责协议事实或真实执行。
+- `src/core/agent-conversation/` 负责预设文件/事件、三个工具的参数校验、模拟文件状态、step 连接可见性与历史快照重建；不读取真实文件或网络。
 - `src/core/` 负责纯计算与预设数据；不控制视图和时间。
 - `src/components/` 负责复用的 UI 和动效偏好；不拥有主题状态。
 - `src/styles/` 负责设计变量、网站外壳和演示样式；不通过样式隐藏业务状态。

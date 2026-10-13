@@ -1,5 +1,6 @@
 // Pure replay, never executes a tool. See the topic TECHNICAL_DESIGN.md.
-import { files, toolDefinition, type FlowEvent, type Item, type Lesson } from './fixtures';
+import { files, projectPath, type FlowEvent, type Item, type Lesson } from './fixtures';
+import { parseToolArguments, toolDefinitions, type ToolArguments } from './tools';
 export type Call = {
   id: string;
   callId: string;
@@ -9,6 +10,7 @@ export type Call = {
   path?: string;
   status: 'assembling' | 'ready' | 'running' | 'succeeded' | 'failed';
   result?: string;
+  input?: ToolArguments;
 };
 export type Request = {
   round: number;
@@ -32,6 +34,7 @@ export type FlowState = {
   activeFile?: string;
   executionCount: number;
   last?: FlowEvent;
+  files: Record<string, string>;
 };
 export function replay(lesson: Lesson, cursor: number): FlowState {
   const state: FlowState = {
@@ -43,7 +46,9 @@ export function replay(lesson: Lesson, cursor: number): FlowState {
     response: 'waiting',
     task: 'active',
     executionCount: 0,
+    files: { ...files },
   };
+  if (lesson.missingFile) delete state.files[projectPath];
   const seenResults = new Set<string>();
   for (const event of lesson.events.slice(0, Math.max(0, cursor))) {
     state.last = event;
@@ -64,7 +69,7 @@ export function replay(lesson: Lesson, cursor: number): FlowState {
             model: '<responses-compatible-model>',
             instructions: lesson.instructions,
             input: state.history.map((i) => ({ ...i })),
-            tools: [toolDefinition],
+            tools: toolDefinitions,
             stream: true,
             parallel_tool_calls: false,
           },
@@ -95,20 +100,12 @@ export function replay(lesson: Lesson, cursor: number): FlowState {
       case 'response.output_item.done':
         if (call && item?.type === 'function_call') {
           call.arguments = String(item.arguments);
-          try {
-            const args = JSON.parse(call.arguments);
-            if (
-              call.name === 'read_file' &&
-              Object.keys(args).length === 1 &&
-              typeof args.path === 'string' &&
-              Object.hasOwn(files, args.path)
-            ) {
-              call.path = args.path;
-              call.status = 'ready';
-            } else call.status = 'failed';
-          } catch {
-            call.status = 'failed';
-          }
+          const args = parseToolArguments(call.name, call.arguments, state.files);
+          if (args) {
+            call.path = args.path;
+            call.input = args;
+            call.status = 'ready';
+          } else call.status = 'failed';
         }
         break;
       case 'response.completed': {
@@ -128,6 +125,8 @@ export function replay(lesson: Lesson, cursor: number): FlowState {
           seenResults.add(call.callId);
           call.result = String(d.output);
           call.status = d.failed ? 'failed' : 'succeeded';
+          if (!d.failed && call.name === 'write_file' && call.input?.content !== undefined)
+            state.files[call.input.path] = call.input.content;
           state.executionCount++;
           state.history.push({
             type: 'function_call_output',

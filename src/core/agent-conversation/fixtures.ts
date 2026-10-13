@@ -1,5 +1,7 @@
 // Technical contract: docs/demos/agent-conversation/TECHNICAL_DESIGN.md
+import { simulateTool, summaryPath, toolDefinitions, type ToolName } from './tools';
 export type Branch = 'normal' | 'file-error' | 'interrupted';
+export type Task = 'summary' | 'save-summary';
 export type Item = { [key: string]: unknown };
 export type FlowEvent = {
   id: string;
@@ -14,6 +16,7 @@ export type Lesson = {
   instructions: string;
   events: FlowEvent[];
   initialCursor: number;
+  missingFile?: boolean;
 };
 export const projectPath = 'notes/project.md';
 export const skillPath = 'skills/project-summary/SKILL.md';
@@ -22,18 +25,9 @@ export const projectText =
 export const skillText =
   '---\nname: project-summary\ndescription: 读取项目说明并整理为三条中文摘要。\n---\n先读取用户指定的项目说明文件。\n摘要依次覆盖目标、技术和部署。\n只依据已读内容，不补写不存在的事实。\n';
 export const files: Record<string, string> = { [projectPath]: projectText, [skillPath]: skillText };
-export const toolDefinition = {
-  type: 'function',
-  name: 'read_file',
-  description: '读取教学工作区中指定文件的完整 UTF-8 文本。',
-  parameters: {
-    type: 'object',
-    properties: { path: { type: 'string' } },
-    required: ['path'],
-    additionalProperties: false,
-  },
-  strict: true,
-};
+export const toolDefinition = toolDefinitions[0];
+export const summaryText =
+  '# 项目摘要\n1. 目标：用交互演示帮助初学者理解语言模型。\n2. 技术：Vite、React、TypeScript 和 Motion。\n3. 部署：GitHub Pages；教学模拟不连接真实模型。\n';
 export const agentTopic = {
   id: 'agent' as const,
   title: 'Agent，是怎样完成任务的？',
@@ -50,16 +44,20 @@ export const agentTopic = {
   ],
 };
 
-export function createLesson(scene: number, branch: Branch): Lesson {
+export function createLesson(scene: number, branch: Branch, task: Task = 'summary'): Lesson {
   const useSkill = scene >= 4;
   const simple = scene < 2;
-  const question = simple
-    ? '用一句话解释什么是 Agent。'
-    : useSkill
-      ? '请读取 notes/project.md，并按项目摘要 Skill 用三条要点总结。'
-      : '请读取 notes/project.md，用三条要点总结这个项目。';
+  const saving = !simple && task === 'save-summary';
+  const question = saving
+    ? '请列出 notes 目录，读取项目说明，按项目摘要 Skill 整理三条要点并保存到 notes/summary.md。'
+    : simple
+      ? '用一句话解释什么是 Agent。'
+      : useSkill
+        ? '请读取 notes/project.md，并按项目摘要 Skill 用三条要点总结。'
+        : '请读取 notes/project.md，用三条要点总结这个项目。';
   const instructions =
     '使用简短的中文回答。根据已读资料回答，工作区文件使用 read_file 读取。' +
+    (saving ? '先列出 notes 目录，将摘要使用 write_file 写入 notes/summary.md。' : '') +
     (useSkill
       ? `可用 Skill：project-summary；描述：读取项目说明并整理为三条中文摘要；路径：${skillPath}。`
       : '');
@@ -78,21 +76,24 @@ export function createLesson(scene: number, branch: Branch): Lesson {
       response: { id: `resp_${round}`, status: 'in_progress' },
     });
   };
-  const call = (path: string, key: string) => {
+  const workspace = { ...files };
+  if (branch === 'file-error') delete workspace[projectPath];
+  const call = (path: string, key: string, name: ToolName = 'read_file', content?: string) => {
     start();
     const item = {
       type: 'function_call',
       id: `fc_${key}`,
       call_id: `call_${key}`,
-      name: 'read_file',
+      name,
       arguments: '',
     };
-    add('response.output_item.added', '模型请求调用 read_file', 'response', {
+    add('response.output_item.added', `模型请求调用 ${name}`, 'response', {
       output_index: 0,
       item,
     });
-    const args = JSON.stringify({ path });
-    for (const delta of ['{"path":', JSON.stringify(path), '}'])
+    const values = { path, ...(content !== undefined ? { content } : {}) };
+    const args = JSON.stringify(values);
+    for (const delta of [args.slice(0, 8), args.slice(8, -1), '}'])
       add('response.function_call_arguments.delta', '接收工具参数片段', 'response', {
         item_id: item.id,
         output_index: 0,
@@ -112,21 +113,24 @@ export function createLesson(scene: number, branch: Branch): Lesson {
       response: { id: `resp_${round}`, status: 'completed', output: [complete] },
     });
     add('local.tool_start', '校验通过，聚焦本地文件', 'local', { call_id: item.call_id, path });
-    const failed = branch === 'file-error' && path === projectPath;
+    const { failed, output } = simulateTool(name, values, workspace);
     add(
       'local.tool_result',
       failed ? '文件读取失败，生成错误结果' : '读取内容，插入工具结果',
       'local',
       {
         call_id: item.call_id,
-        output: failed ? JSON.stringify({ ok: false, code: 'FILE_NOT_FOUND', path }) : files[path],
+        output,
         failed,
       },
     );
+    if (name === 'write_file' && !failed) workspace[path] = content!;
     add('local.result_staged', '工具结果等待送入下一轮请求', 'chat', { call_id: item.call_id });
   };
+  if (saving) call('notes', 'list', 'list_directory');
   if (useSkill) call(skillPath, 'skill');
   if (!simple) call(projectPath, 'file');
+  if (saving && branch !== 'file-error') call(summaryPath, 'write', 'write_file', summaryText);
   start();
   if (scene === 0) return { question, instructions, events: events.slice(0, 3), initialCursor: 0 };
   const fragments = simple
@@ -140,6 +144,7 @@ export function createLesson(scene: number, branch: Branch): Lesson {
           'TypeScript 和 Motion。\n',
           '3. 部署：GitHub Pages；',
           '教学模拟不连接真实模型。',
+          ...(saving ? ['\n已保存到 notes/summary.md。'] : []),
         ];
   const message = {
     type: 'message',
@@ -171,6 +176,7 @@ export function createLesson(scene: number, branch: Branch): Lesson {
         instructions,
         events,
         initialCursor: 0,
+        missingFile: false,
       };
     }
   }
@@ -203,5 +209,6 @@ export function createLesson(scene: number, branch: Branch): Lesson {
     instructions,
     events,
     initialCursor: 0,
+    missingFile: branch === 'file-error',
   };
 }
