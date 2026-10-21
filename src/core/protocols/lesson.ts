@@ -292,6 +292,8 @@ export const highlightedKeys = new Set([
   'output',
 ]);
 export const sources = [
+  ['OpenAI 图片输入', 'https://developers.openai.com/api/docs/guides/images-vision'],
+  ['Anthropic 图片输入', 'https://platform.claude.com/docs/en/build-with-claude/vision'],
   [
     'OpenAI：完整 Response 对象',
     'https://developers.openai.com/api/reference/cli/resources/responses/methods/retrieve',

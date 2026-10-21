@@ -98,3 +98,20 @@ Responses 卡片标题行右侧提供仅作用于 Responses 的增量开关，�
 右上角增加两个场景选项，默认普通会话。场景切换清除字段定位并回到请求视图，保留 Responses 增量偏好。普通会话使用“什么是模型网关？”及“用一个生活中的例子解释”的连续对话，不包含工具定义、调用或结果；请求导航为用户输入、历史消息、指令、模型，响应导航为文本回答、结束状态、用量、响应 ID。工具调用沿用 read 场景及工具导航。
 
 普通会话增量仅上传新的追问，previous_response_id 指向上一轮解释网关的响应；当前用户输入定位 input[0].content，历史消息定位 previous_response_id。普通会话 Chat finish_reason=stop、Messages stop_reason=end_turn、Responses status=completed 且 output 只有本轮文本。保留完整场景 JSON，所有模式中的注释及导航路径都必须存在，模型、ID 与 Token 值仍为教学值。依据沿用已读取的 Conversation state、Chat、Messages 官方来源；不引入新的协议能力。
+
+### 普通会话图片输入（2026-10-21）
+
+教学目标：比较同一张图片在三种请求中的封装，区分应用保存图片的方式与网关出站协议。范围为预设普通会话，不新增上传、真实请求或网关运行模拟；工具场景不变。
+
+事实来源：本日通过 BetterWright 阅读 [OpenAI Images and vision](https://developers.openai.com/api/docs/guides/images-vision) 与 [Anthropic Vision](https://platform.claude.com/docs/en/build-with-claude/vision)。两者支持 URL 与 base64 图片；Responses 及 Anthropic 还提供文件引用能力，但文件 ID 不可假定能跨供应商/渠道直接使用。模型必须支持视觉，现有模型标签仍为教学配置名，不承诺实际型号支持图片。
+
+本地 New API 基线为 206e0fa5c600127a314a97f88592c067f784f4a6，阅读 relaykit/relayconvert/internal 下 oai_chat/to_oai_responses_req.go、oai_chat/to_claude_messages_req.go、oai_responses/to_claude_messages_req.go 与 claude_messages/to_oai_responses_req.go：
+Chat → Responses 保留图片 URL/data URL 并改封装；Chat/Responses → Messages 的上述转换路径通过 ResolveBase64Data 解析图片来源，再构造 base64 图片块；Messages → Responses 优先保留 source.url，否则构造 data URL。因此“所有网关转发都必须 base64”不成立。此结论限定该版本与路径，未运行真实网关测试，也不外推到全部适配器、透传配置或部署平台。
+
+样例契约（项目设计）：同一有效 1×1 红色 PNG 的完整 base64 存在核心数据中；本轮用户附图并追问生活例子。Chat content 使用 text 与 image_url 块，image_url.url 为 data:image/png;base64,<完整数据>；Responses 使用 input_text 与 input_image，后者 image_url 为同一 data URL，detail:auto；Messages 使用 text 与 image，source 为 {type:"base64",media_type:"image/png",data:<纯base64>}。响应为固定教学回答，不代表实际视觉识别。增量请求仍上传本轮图片，previous_response_id 只关联之前历史。
+
+展示决策：新增“图片输入”精确定位；复用原 JSON 窗口及复制操作，无新动画。仅图片数据值在显示层缩略为前缀、已省略提示与字符数；不截断底层数据，复制仍得到完整合法请求。页面明确“图片 base64 已缩略 · 复制保留全文”；字段注释解释 data URL 与纯 base64 的区别。禁止把缩略结果当成可发送的请求。此处覆盖此前“不用省略号”的图片数据展示约束，其他字段继续完整显示。
+
+编码前检查：目标/来源/形状/增量边界已明确，无阻塞事实；核心样例与视图分离，沿用字段定位及低动态偏好。验收：三协议解码到相同 PNG；增量保持本轮图片；缩略不影响原始序列化和复制；全部定位存在；普通/工具与请求/响应切换正确；桌面与 320px 无页面横向溢出，键盘可定位。
+
+本次验证：npm run verify 通过（71 项测试、类型检查、构建与本地链接）；BetterWright 验证 1440px 与 320px、减少动态效果、键盘定位、普通/工具和请求/响应切换、增量图片定位，截图已查看。复制按钮显示成功；浏览器禁止剪贴板回读，未声称完成剪贴板内容实读，完整序列化和缩略隔离由核心测试覆盖。

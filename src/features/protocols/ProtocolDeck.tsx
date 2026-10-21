@@ -20,6 +20,8 @@ import {
   incrementalComments,
 } from '../../core/protocols/incremental';
 import {
+  abbreviateImageLine,
+  imageComments,
   conversationDocuments,
   conversationIncremental,
   conversationFocus,
@@ -144,7 +146,7 @@ function JsonBlock({
       className="protocol-json"
       ref={scroller}
       tabIndex={0}
-      aria-label={`${label} 完整 JSON，可滚动`}
+      aria-label={`${label} JSON（图片 base64 缩略），可滚动`}
     >
       <code>
         {lines.map((line, index) => {
@@ -166,7 +168,7 @@ function JsonBlock({
               </span>
               <span className="json-content">
                 <span className="json-code">
-                  {colorLine(line.text, first ? annotation : undefined)}
+                  {colorLine(abbreviateImageLine(line.text), first ? annotation : undefined)}
                   {'\n'}
                 </span>
               </span>
@@ -248,14 +250,17 @@ export function ProtocolDeck({ suspended }: { suspended: boolean }) {
                 <Dialog.Description>教学样例 · 非流式 · 无真实请求</Dialog.Description>
                 <div className="protocol-sources">
                   <p>
-                    展示本场景的完整请求体与响应对象，不用省略号替代内容；不代表所有可选参数的全集。模型名为指定的演示配置名，ID
+                    展示本场景的请求体与响应对象；图片 base64 仅显示摘要，复制 JSON
+                    保留完整数据；不代表所有可选参数的全集。模型名为指定的演示配置名，ID
                     为符合常见格式的合成示例；时间、文件内容和用量均为教学值。使用真实 API
                     时需替换模型，并提供对应认证。Responses 默认显式携带 input 历史；开启增量后通过
                     previous_response_id 关联历史。增量指历史续接，不是 SSE
                     流式传输。带虚线的字段名可悬停查看注释，复制时不包含注释。
                   </p>
                   <p>
-                    普通会话展示连续提问与文本回答，不调用工具。工具调用演示中的 read
+                    普通会话展示连续提问、base64 图片输入与文本回答，不调用工具。三种协议也支持图片
+                    URL，网关是否转为 base64
+                    取决于适配路径；支持该协议不代表模型具备视觉能力。工具调用演示中的 read
                     为自定义文件读取工具，并非供应商内置工具；该场景的三种响应都包含待执行的
                     package.json 读取调用。Responses 的 completed 表示生成完成；正文通过 output
                     内容条目返回，SDK 的 output_text 是便利属性。核对日期：2026-10-21。
@@ -369,10 +374,18 @@ export function ProtocolDeck({ suspended }: { suspended: boolean }) {
                 target={target}
                 revision={revision}
                 label={label}
-                comments={active ? hints[direction] : undefined}
+                comments={{
+                  ...(active ? hints[direction] : {}),
+                  ...(ordinary && direction === 'request' ? imageComments(p.id, active) : {}),
+                }}
               />
               <div className="protocol-code-footer">
-                <span>{jsonLines(data).length} 行 · 全文保留</span>
+                <span>
+                  {jsonLines(data).length} 行 ·{' '}
+                  {ordinary && direction === 'request'
+                    ? '图片 base64 已缩略 · 复制保留全文'
+                    : '全文保留'}
+                </span>
                 <CopyJson data={data} label={label} />
               </div>
             </article>
