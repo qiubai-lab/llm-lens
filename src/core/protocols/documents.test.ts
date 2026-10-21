@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { documents, focusItems, jsonLines, pointer, withinPath } from './documents';
-import { protocols } from './lesson';
+import { protocols, tools, calls } from './lesson';
 
 describe('complete protocol documents and exact navigation', () => {
   for (const direction of ['request', 'response'] as const) {
@@ -57,4 +57,30 @@ describe('complete protocol documents and exact navigation', () => {
     expect(s.responses).not.toHaveProperty('output_text');
     for (const p of protocols) expect(r[p.id].stream).toBe(false);
   });
+});
+
+it('uses matching read contracts and distinct realistic-format identities', () => {
+  const { request, response } = documents;
+  expect([request.chat.model, request.responses.model, request.anthropic.model]).toEqual([
+    'deepseek',
+    'gpt6',
+    'claude-ops',
+  ]);
+  expect([tools.chat.function.name, tools.responses.name, tools.anthropic.name]).toEqual([
+    'read',
+    'read',
+    'read',
+  ]);
+  const first = { file_path: '/workspace/README.md', offset: 1, limit: 100 };
+  const next = { file_path: '/workspace/package.json', offset: 1, limit: 100 };
+  expect(JSON.parse(calls.responses.arguments)).toEqual(first);
+  expect(JSON.parse(response.chat.choices[0].message.tool_calls[0].function.arguments)).toEqual(
+    next,
+  );
+  expect(JSON.parse(response.responses.output[1].arguments)).toEqual(next);
+  expect(response.anthropic.content[1].input).toEqual(next);
+  expect(response.responses.id).toMatch(/^resp_[a-f0-9]+$/);
+  expect(response.anthropic.id).toMatch(/^msg_[A-Za-z0-9]+$/);
+  expect(response.anthropic.content[1].id).toMatch(/^toolu_[A-Za-z0-9]+$/);
+  expect(JSON.stringify(documents)).not.toMatch(/demo|get_weather|temperature_c/);
 });

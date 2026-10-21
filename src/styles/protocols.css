@@ -291,3 +291,108 @@
 .protocol-sources a {
   overflow-wrap: anywhere;
 }
+
+.protocol-title-row {
+  width: 100%;
+}
+.protocol-incremental {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: var(--font-size-control);
+  cursor: pointer;
+}
+.protocol-switch-track {
+  display: flex;
+  align-items: center;
+  width: 36px;
+  height: 22px;
+  padding: 3px;
+  border-radius: 99px;
+  background: var(--border);
+}
+.protocol-switch-track i {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-body);
+}
+.protocol-incremental[aria-checked='true'] {
+  color: var(--blue);
+}
+.protocol-incremental[aria-checked='true'] .protocol-switch-track {
+  background: var(--blue);
+}
+.protocol-incremental[aria-checked='true'] i {
+  margin-left: auto;
+}
+.json-content {
+  flex: 1;
+  min-width: 0;
+}
+.protocol-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.protocol-card-title .protocol-incremental {
+  padding: 0;
+}
+.protocol-field-hint {
+  cursor: help;
+  text-decoration: underline dotted var(--muted);
+  text-underline-offset: 4px;
+  border-radius: 2px;
+}
+.protocol-field-hint:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}
+.protocol-field-bubble {
+  z-index: 110;
+  max-width: min(360px, calc(100vw - 32px));
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-panel);
+  color: var(--text-body);
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-copy);
+  overflow-wrap: anywhere;
+  box-shadow: 0 8px 28px #0005;
+}
+.protocol-field-bubble svg {
+  fill: var(--surface-panel);
+}
+
+.protocol-scenarios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-left: auto;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-terminal);
+}
+.protocol-scenarios button {
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--muted);
+  background: none;
+  font-size: var(--font-size-control);
+  cursor: pointer;
+}
+.protocol-scenarios button[aria-pressed='true'] {
+  color: var(--blue);
+  border-color: var(--border);
+  background: var(--blue-soft);
+}

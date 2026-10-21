@@ -10,7 +10,7 @@ export const protocols = [
   {
     id: 'chat',
     name: 'Chat Completions',
-    vendor: 'OPENAI',
+    vendor: 'DEEPSEEK',
     endpoint: '/v1/chat/completions',
     unit: 'Messages · 消息',
   },
@@ -30,37 +30,49 @@ export const protocols = [
   },
 ] as const;
 export type Protocol = (typeof protocols)[number]['id'];
-export const prompt = '上海天气如何？';
+export const prompt = '请读取 /workspace/README.md。';
 export const instruction = '用中文简短回答。';
-export const answer = '上海 22°C，晴。';
-export const followup = '适合散步吗？';
-export const fragments = ['上海', ' 22°C', '，晴。'];
+export const answer = 'README 介绍了一个中文交互科普站。';
+export const followup = '项目如何启动？';
+export const fragments = ['README 介绍了', '一个中文', '交互科普站。'];
 const schema = {
   type: 'object',
-  properties: { city: { type: 'string' } },
-  required: ['city'],
+  properties: {
+    file_path: { type: 'string' },
+    offset: { type: 'integer', minimum: 1 },
+    limit: { type: 'integer', minimum: 1 },
+  },
+  required: ['file_path', 'offset', 'limit'],
   additionalProperties: false,
 };
-export const toolResult = { temperature_c: 22, condition: '晴' };
-const argumentsText = JSON.stringify({ city: '上海' });
+export const toolResult = {
+  file_path: '/workspace/README.md',
+  content: '# LLM Lens\n中文交互科普站。',
+  lines_read: 2,
+};
+const argumentsText = JSON.stringify({ file_path: '/workspace/README.md', offset: 1, limit: 100 });
 export const tools = {
   chat: {
     type: 'function',
     function: {
-      name: 'get_weather',
-      description: '查询城市天气',
+      name: 'read',
+      description: '读取指定文件的内容，offset 从 1 开始，limit 为最大行数',
       parameters: schema,
       strict: true,
     },
   },
   responses: {
     type: 'function',
-    name: 'get_weather',
-    description: '查询城市天气',
+    name: 'read',
+    description: '读取指定文件的内容，offset 从 1 开始，limit 为最大行数',
     parameters: schema,
     strict: true,
   },
-  anthropic: { name: 'get_weather', description: '查询城市天气', input_schema: schema },
+  anthropic: {
+    name: 'read',
+    description: '读取指定文件的内容，offset 从 1 开始，limit 为最大行数',
+    input_schema: schema,
+  },
 };
 export const calls = {
   chat: {
@@ -68,35 +80,50 @@ export const calls = {
     content: null,
     tool_calls: [
       {
-        id: 'call_demo',
+        id: 'call_K7mP2xV9rT4nQ8sL5wB3hY6d',
         type: 'function',
-        function: { name: 'get_weather', arguments: argumentsText },
+        function: { name: 'read', arguments: argumentsText },
       },
     ],
   },
   responses: {
     type: 'function_call',
-    id: 'fc_demo',
-    call_id: 'call_demo',
-    name: 'get_weather',
+    id: 'fc_06c4e7b9a1328f500169e2d74c19b5ae803f026a7b1c48d659',
+    call_id: 'call_K7mP2xV9rT4nQ8sL5wB3hY6d',
+    name: 'read',
     arguments: argumentsText,
   },
   anthropic: {
     role: 'assistant',
-    content: [{ type: 'tool_use', id: 'toolu_demo', name: 'get_weather', input: { city: '上海' } }],
+    content: [
+      {
+        type: 'tool_use',
+        id: 'toolu_01Jp4Nx7Qm2Vr8Ls5Th9Wk6B',
+        name: 'read',
+        input: { file_path: '/workspace/README.md', offset: 1, limit: 100 },
+      },
+    ],
   },
 };
 export const results = {
-  chat: { role: 'tool', tool_call_id: 'call_demo', content: JSON.stringify(toolResult) },
+  chat: {
+    role: 'tool',
+    tool_call_id: 'call_K7mP2xV9rT4nQ8sL5wB3hY6d',
+    content: JSON.stringify(toolResult),
+  },
   responses: {
     type: 'function_call_output',
-    call_id: 'call_demo',
+    call_id: 'call_K7mP2xV9rT4nQ8sL5wB3hY6d',
     output: JSON.stringify(toolResult),
   },
   anthropic: {
     role: 'user',
     content: [
-      { type: 'tool_result', tool_use_id: 'toolu_demo', content: JSON.stringify(toolResult) },
+      {
+        type: 'tool_result',
+        tool_use_id: 'toolu_01Jp4Nx7Qm2Vr8Ls5Th9Wk6B',
+        content: JSON.stringify(toolResult),
+      },
     ],
   },
 };
@@ -104,25 +131,25 @@ export function requestFor(p: Protocol, withTool = false) {
   const user = { role: 'user', content: prompt };
   const base =
     p === 'chat'
-      ? { model: 'openai-demo', messages: [{ role: 'developer', content: instruction }, user] }
+      ? { model: 'deepseek', messages: [{ role: 'developer', content: instruction }, user] }
       : p === 'responses'
-        ? { model: 'openai-demo', instructions: instruction, input: [user] }
-        : { model: 'claude-demo', max_tokens: 256, system: instruction, messages: [user] };
+        ? { model: 'gpt6', instructions: instruction, input: [user] }
+        : { model: 'claude-ops', max_tokens: 256, system: instruction, messages: [user] };
   return { ...base, ...(withTool ? { tools: [tools[p]] } : {}), stream: true };
 }
 export function continuationFor(p: Protocol, tool = false) {
   const user = { role: 'user', content: prompt };
   if (p === 'responses')
     return {
-      model: 'openai-demo',
+      model: 'gpt6',
       instructions: instruction,
-      previous_response_id: tool ? 'resp_tool_demo' : 'resp_demo',
+      previous_response_id: 'resp_06c4e7b9a1328f500169e2d74b8c03fa9d6e128457b0c35a21',
       input: tool ? [results.responses] : [{ role: 'user', content: followup }],
       ...(tool ? { tools: [tools.responses] } : {}),
     };
   if (p === 'chat')
     return {
-      model: 'openai-demo',
+      model: 'deepseek',
       messages: [
         { role: 'developer', content: instruction },
         user,
@@ -136,7 +163,7 @@ export function continuationFor(p: Protocol, tool = false) {
       ...(tool ? { tools: [tools.chat] } : {}),
     };
   return {
-    model: 'claude-demo',
+    model: 'claude-ops',
     max_tokens: 256,
     system: instruction,
     messages: [
@@ -168,13 +195,19 @@ export function streamFor(p: Protocol): WireEvent[] {
     return [
       {
         event: 'response.created',
-        data: { type: 'response.created', response: { id: 'resp_demo', status: 'in_progress' } },
+        data: {
+          type: 'response.created',
+          response: {
+            id: 'resp_06c4e7b9a1328f500169e2d74b8c03fa9d6e128457b0c35a21',
+            status: 'in_progress',
+          },
+        },
       },
       ...fragments.map((delta) => ({
         event: 'response.output_text.delta',
         data: {
           type: 'response.output_text.delta',
-          item_id: 'msg_demo',
+          item_id: 'msg_01Hq7Tm4Vr9Ls2Np8Wx5Kb3C',
           output_index: 0,
           content_index: 0,
           delta,
@@ -185,7 +218,7 @@ export function streamFor(p: Protocol): WireEvent[] {
         data: {
           type: 'response.completed',
           response: {
-            id: 'resp_demo',
+            id: 'resp_06c4e7b9a1328f500169e2d74b8c03fa9d6e128457b0c35a21',
             status: 'completed',
             output: [
               {
@@ -201,7 +234,10 @@ export function streamFor(p: Protocol): WireEvent[] {
   return [
     {
       event: 'message_start',
-      data: { type: 'message_start', message: { id: 'msg_demo', role: 'assistant', content: [] } },
+      data: {
+        type: 'message_start',
+        message: { id: 'msg_01Hq7Tm4Vr9Ls2Np8Wx5Kb3C', role: 'assistant', content: [] },
+      },
     },
     {
       event: 'content_block_start',

@@ -76,3 +76,25 @@ Responses 的 output_text 是 SDK 聚合便利属性，不展示为原始 HTTP �
 ### 布局精简（2026-10-21）
 
 请求 / 响应改为标题后的卡片选项；样例与官方依据改为同一标题行的标签按钮，通过 Radix Dialog 展示，支持 Escape、焦点约束及关闭后返回触发按钮。字段入口采用原主导航的横向顶部线条样式，窄屏换行。移除主页面的场景说明及字段解释段落，完整 JSON、精确路径定位与复制行为保持不变。本次只调整展示层，不改变样例事实。
+
+### Responses 增量开关
+
+Responses 卡片标题行右侧提供仅作用于 Responses 的增量开关，跨请求 / 响应保持状态。依据已读取的官方 [Conversation state](https://developers.openai.com/api/docs/guides/conversation-state) 与 [Create Response](https://developers.openai.com/api/reference/resources/responses/methods/create)（2026-10-21）：previous_response_id 引用服务端可用的先前响应；顶层 instructions 需重新提供；历史仍计入上下文及输入计费。
+
+本场景前一响应 resp_shanghai_demo 已保存用户问题与上海工具调用 call_demo；本轮增量 input 只上传上海 function_call_output。继续提供 instructions、tools 和本轮配置，store:true 保存本轮以供续接。本轮响应仍是完整 Response 对象，output 只含本轮新输出（默认模式本来也如此），previous_response_id 指向上海响应，id 为 resp_hangzhou_demo。不得将增量误作 SSE 流式增量或只返回 ID。
+
+用户输入 / 历史调用定位在增量请求下指向 previous_response_id，并标注“历史由 ID 关联”；工具结果定位改为 input[0]。其他协议不变。行旁教学注释与 JSON 数据分离，复制只复制合法完整 JSON。验收包括工具结果 ID 配对、全部定位路径、模式切换、请求响应共享开关、键盘与窄屏。
+
+### read 场景与字段提示
+
+改用先读取 /workspace/README.md、再读取 /workspace/package.json 的自定义 read 工具。参数 file_path:string、offset:integer、limit:integer 均必填，offset 从 1 开始，limit 为最大读取行数；这是本演示定义的工具契约，不是三家供应商内置工具。沿用已核对的 Function calling / Messages 工具输入结构，Chat 与 Responses arguments 仍为 JSON 字符串，Messages input 为对象。
+
+模型按用户指定显示 deepseek / gpt6 / claude-ops，属于演示配置名称，不声称为官方可调用型号。ID 使用各对象常见前缀及不含 demo 的不透明后缀，所有调用 / 结果 / 前后响应关联保持一致；这些是合成教学 ID，不是线上记录，格式不作为接口校验规则。
+
+原行内注释改为字段名上的可聚焦 hover 提示，180ms 显示，离开后 400ms 关闭；进入气泡取消关闭，Escape 即时关闭，卸载清理定时器。触屏点击同样可打开。复制和代码内容不含注释，模式切换清除旧提示。验收覆盖气泡延迟及悬停保持、键盘、样例读文件参数与关联一致性、窄屏。
+
+### 普通会话 / 工具调用独立演示
+
+右上角增加两个场景选项，默认普通会话。场景切换清除字段定位并回到请求视图，保留 Responses 增量偏好。普通会话使用“什么是模型网关？”及“用一个生活中的例子解释”的连续对话，不包含工具定义、调用或结果；请求导航为用户输入、历史消息、指令、模型，响应导航为文本回答、结束状态、用量、响应 ID。工具调用沿用 read 场景及工具导航。
+
+普通会话增量仅上传新的追问，previous_response_id 指向上一轮解释网关的响应；当前用户输入定位 input[0].content，历史消息定位 previous_response_id。普通会话 Chat finish_reason=stop、Messages stop_reason=end_turn、Responses status=completed 且 output 只有本轮文本。保留完整场景 JSON，所有模式中的注释及导航路径都必须存在，模型、ID 与 Token 值仍为教学值。依据沿用已读取的 Conversation state、Chat、Messages 官方来源；不引入新的协议能力。

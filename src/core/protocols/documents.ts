@@ -2,10 +2,10 @@
 import { calls, instruction, results, tools, type Protocol } from './lesson';
 export type Direction = 'request' | 'response';
 export type JsonPath = readonly (string | number)[];
-const question = '上海天气如何？再帮我查一下杭州。';
-const text = '上海 22°C，晴。我再查一下杭州。';
-const args = JSON.stringify({ city: '杭州' });
-const model = { chat: 'openai-demo', responses: 'openai-demo', anthropic: 'claude-demo' };
+const question = '请先读取 /workspace/README.md，再读取 /workspace/package.json，介绍这个项目。';
+const text = 'README 介绍了一个中文交互科普站。我继续读取 package.json。';
+const args = JSON.stringify({ file_path: '/workspace/package.json', offset: 1, limit: 100 });
+const model = { chat: 'deepseek', responses: 'gpt6', anthropic: 'claude-ops' };
 export const documents = {
   request: {
     chat: {
@@ -43,7 +43,7 @@ export const documents = {
   },
   response: {
     chat: {
-      id: 'chatcmpl_hangzhou_demo',
+      id: 'chatcmpl-C8mQ2vR7sL4xN9pT6kW1bY5d',
       object: 'chat.completion',
       created: 1792530000,
       model: model.chat,
@@ -57,9 +57,9 @@ export const documents = {
             annotations: [],
             tool_calls: [
               {
-                id: 'call_hangzhou_demo',
+                id: 'call_R8vN3kL6pX2sT9mB4wQ7hY5c',
                 type: 'function',
-                function: { name: 'get_weather', arguments: args },
+                function: { name: 'read', arguments: args },
               },
             ],
           },
@@ -83,7 +83,7 @@ export const documents = {
       system_fingerprint: null,
     },
     responses: {
-      id: 'resp_hangzhou_demo',
+      id: 'resp_06c4e7b9a1328f500169e2d75d9a41bc7f0e235168c9a42b36',
       object: 'response',
       access_programs: null,
       created_at: 1792530000,
@@ -97,16 +97,16 @@ export const documents = {
       output: [
         {
           type: 'message',
-          id: 'msg_hangzhou_demo',
+          id: 'msg_06c4e7b9a1328f500169e2d75f39b7de015a248c9b3e60f871',
           status: 'completed',
           role: 'assistant',
           content: [{ type: 'output_text', text, annotations: [], logprobs: [] }],
         },
         {
           type: 'function_call',
-          id: 'fc_hangzhou_demo',
-          call_id: 'call_hangzhou_demo',
-          name: 'get_weather',
+          id: 'fc_06c4e7b9a1328f500169e2d75e28a6cd904f137b8a2d59e760',
+          call_id: 'call_R8vN3kL6pX2sT9mB4wQ7hY5c',
+          name: 'read',
           arguments: args,
           status: 'completed',
         },
@@ -132,7 +132,7 @@ export const documents = {
       metadata: {},
     },
     anthropic: {
-      id: 'msg_hangzhou_demo',
+      id: 'msg_01Rk8Tn3Wv6Qp2Ls9Xm4Hb7C',
       type: 'message',
       role: 'assistant',
       model: model.anthropic,
@@ -140,9 +140,9 @@ export const documents = {
         { type: 'text', text },
         {
           type: 'tool_use',
-          id: 'toolu_hangzhou_demo',
-          name: 'get_weather',
-          input: { city: '杭州' },
+          id: 'toolu_01Vq8Lm3Rs6Np2Xh9Tk4Wb7C',
+          name: 'read',
+          input: { file_path: '/workspace/package.json', offset: 1, limit: 100 },
         },
       ],
       stop_reason: 'tool_use',
@@ -189,7 +189,7 @@ export const focusItems: Record<Direction, FieldFocus[]> = {
     {
       id: 'call',
       title: '历史工具调用',
-      description: '请求保留之前查询上海的调用，供模型把工具结果与调用关联。',
+      description: '请求保留之前读取 README的调用，供模型把工具结果与调用关联。',
       paths: {
         chat: ['messages', 2, 'tool_calls', 0],
         responses: ['input', 1],
@@ -199,7 +199,7 @@ export const focusItems: Record<Direction, FieldFocus[]> = {
     {
       id: 'result',
       title: '工具结果',
-      description: '应用已执行上海查询；三种结果格式都通过调用 ID 配对。',
+      description: '应用已执行README 读取；三种结果格式都通过调用 ID 配对。',
       paths: {
         chat: ['messages', 3],
         responses: ['input', 2],
@@ -217,7 +217,7 @@ export const focusItems: Record<Direction, FieldFocus[]> = {
     {
       id: 'text',
       title: '文本回答',
-      description: '同一响应可以包含文字和工具调用；这里先报告上海，再请求查询杭州。',
+      description: '同一响应可以包含文字和工具调用；这里先介绍 README，再请求读取 package.json。',
       paths: {
         chat: ['choices', 0, 'message', 'content'],
         responses: ['output', 0, 'content', 0, 'text'],
@@ -228,7 +228,7 @@ export const focusItems: Record<Direction, FieldFocus[]> = {
       id: 'call',
       title: '工具调用',
       description:
-        '杭州调用尚待应用执行。Chat / Responses 的 arguments 是字符串，Messages 的 input 是对象。',
+        'package.json 读取调用尚待应用执行。Chat / Responses 的 arguments 是字符串，Messages 的 input 是对象。',
       paths: {
         chat: ['choices', 0, 'message', 'tool_calls', 0],
         responses: ['output', 1],

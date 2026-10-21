@@ -18,7 +18,7 @@ describe('protocol teaching contracts', () => {
     expect(requestFor('chat')).toMatchObject({
       messages: [
         { role: 'developer', content: instruction },
-        { role: 'user', content: '上海天气如何？' },
+        { role: 'user', content: '请读取 /workspace/README.md。' },
       ],
     });
     expect(requestFor('responses')).toMatchObject({
@@ -79,9 +79,9 @@ describe('protocol teaching contracts', () => {
       expect(next).not.toHaveProperty('previous_response_id');
     }
     expect(continuationFor('responses')).toMatchObject({
-      previous_response_id: 'resp_demo',
+      previous_response_id: 'resp_06c4e7b9a1328f500169e2d74b8c03fa9d6e128457b0c35a21',
       instructions: instruction,
-      input: [{ role: 'user', content: '适合散步吗？' }],
+      input: [{ role: 'user', content: '项目如何启动？' }],
     });
     const before = JSON.stringify({ calls, results, tools });
     continuationFor('responses', true);

@@ -17,3 +17,26 @@
 - BetterWright 验证标题卡片切换请求 / 响应，工具声明及用量定位正确；底部 details 数量为 0。
 - 标签打开 Radix Dialog，Escape 关闭后焦点回到标签按钮。
 - 查看桌面页面、桌面弹窗与 320px 弹窗截图：proof-1792561039215-018d80.png、proof-1792561039689-e0dc4d.png、proof-1792561046809-801909.png。手机页面宽度 320，弹窗 scrollWidth/clientWidth 均为 286，无横向溢出。
+
+## Responses 增量续接验收
+
+- npm run verify 通过，11 个测试文件、66 项测试；开关移入 Responses 卡片标题后重新通过类型检查及构建。
+- 测试覆盖仅上传新增工具结果、历史调用 ID 匹配、重新提供 instructions/tools、保存可续接响应、响应只含本轮 output、全部导航与注释路径存在。
+- BetterWright 验证开关仅影响 Responses；用户输入定位 previous_response_id，切换响应后开关状态保留且响应返回 resp_hangzhou_demo、关联 resp_shanghai_demo。
+- 代码文本剔除独立注释后可 JSON.parse；复制组件直接序列化原对象，不包含教学注释。
+- 320px 无页面横向溢出；空格键可切换。已查看桌面与窄屏截图 proof-1792561551846-b8db19.png、proof-1792561558120-abbc2a.png。
+
+## read 样例与 hover 气泡验收
+
+- npm run verify 通过：11 文件、67 测试；调整气泡关闭逻辑后再次通过类型检查及构建。
+- 三种请求及响应的模型为 deepseek / gpt6 / claude-ops；read 工具参数统一 file_path、offset、limit，历史 README 读取及新增 package.json 读取调用保持独立，所有工具结果仍正确关联。
+- BetterWright 确认行内注释数量为 0，JSON 可解析；悬停字段显示气泡，移开时气泡仍在，之后自动关闭；移动到气泡保持显示，Escape 关闭。键盘聚焦可显示说明。
+- 320px 页面无横向溢出。已查看桌面气泡截图 proof-1792561879102-b66ae3.png 和窄屏键盘气泡截图 proof-1792561921408-cad1d9.png。
+- ID 为符合常见对象格式的合成教学值，不使用线上记录；样例说明已明确模型名为演示配置名、read 为自定义工具。
+
+## 普通会话 / 工具调用切换验收
+
+- npm run verify 通过，12 个文件、70 项测试。新增测试覆盖普通会话无工具调用、三种协议文本及结束状态一致、增量仅上传追问、所有字段与注释路径存在。
+- BetterWright 遍历两场景 × 两方向 × 增量开关共 8 种组合及全部导航入口；三列 JSON 均可解析，普通会话不含工具调用或 read 参数。
+- 场景切换回请求并清除定位，保留增量偏好。320px 页面宽度保持 320，键盘 Enter 可切换场景。
+- 已查看桌面截图 proof-1792562205860-1e329c.png 与手机截图 proof-1792562213459-be7339.png：桌面右上角切换可见，窄屏换行显示。
