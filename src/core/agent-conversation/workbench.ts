@@ -1,4 +1,4 @@
-// Teaching interaction/visual mapping; see the topic TECHNICAL_DESIGN.md §5.
+// Teaching interaction/visual mapping; see the topic TECHNICAL_DESIGN.md §§9–10.
 import type { Lesson } from './fixtures';
 import { replay, type Call } from './flow';
 import { toolInfo, summaryPath } from './tools';
@@ -8,6 +8,21 @@ export function interactionGate(lesson: Lesson, cursor: number): Call | undefine
   const state = replay(lesson, cursor);
   if (state.response !== 'completed') return;
   return state.calls.find((c) => c.callId === next.data.call_id && c.status === 'ready');
+}
+// Keep the last dispatched tool visible through continuation/argument streaming.
+// A new tool replaces it only after its complete response is ready for dispatch.
+export function activeToolCall(lesson: Lesson, cursor: number): Call | undefined {
+  const state = replay(lesson, cursor);
+  if (state.task !== 'active') return;
+  const completed = new Set(
+    lesson.events
+      .slice(0, cursor)
+      .filter((e) => e.type === 'response.completed')
+      .map((e) => e.round),
+  );
+  return state.calls
+    .filter((c) => c.path && c.status !== 'assembling' && completed.has(c.round))
+    .at(-1);
 }
 export type Activity = {
   id: string;
@@ -76,7 +91,8 @@ export function buildActivities(lesson: Lesson, cursor: number): Activity[] {
 }
 export type Transfer = {
   id: string;
-  kind: 'request' | 'call' | 'dispatch' | 'execute' | 'result' | 'continuation' | 'text';
+  kind:
+    'request' | 'call' | 'dispatch' | 'execute' | 'content' | 'result' | 'continuation' | 'text';
   from: string;
   to: string;
   fromArea: 'chat' | 'local' | 'server';
@@ -95,14 +111,7 @@ function operationTarget(call: Call, state: ReturnType<typeof replay>) {
     ? `directory-${call.name === 'write_file' ? 'notes' : call.path}`
     : `file-${call.path}`;
 }
-const operationLabel = (call: Call, pending = false) =>
-  pending
-    ? call.name === 'write_file'
-      ? '待写入'
-      : call.name === 'list_directory'
-        ? '待列目录'
-        : '待读取'
-    : (toolInfo(call.name)?.label ?? '执行工具');
+const operationLabel = (call: Call) => toolInfo(call.name)?.label ?? '执行工具';
 export function currentTransfer(lesson: Lesson, cursor: number): Transfer | undefined {
   const state = replay(lesson, cursor);
   for (const event of lesson.events.slice(0, cursor).reverse()) {
@@ -142,9 +151,9 @@ export function currentTransfer(lesson: Lesson, cursor: number): Transfer | unde
           ...base,
           kind: 'dispatch',
           from: `agent-call-${ready.callId}`,
-          to: `tool-${ready.callId}`,
+          to: `tool-${ready.callId}-dispatch`,
           fromArea: 'chat',
-          toArea: 'local',
+          toArea: 'chat',
           label: '调度工具',
           tone: 'purple',
         };
@@ -153,9 +162,9 @@ export function currentTransfer(lesson: Lesson, cursor: number): Transfer | unde
       return {
         ...base,
         kind: 'execute',
-        from: `tool-${call.callId}`,
+        from: `tool-${call.callId}-execute`,
         to: operationTarget(call, state),
-        fromArea: 'local',
+        fromArea: 'chat',
         toArea: 'local',
         label: operationLabel(call),
         tone: 'purple',
@@ -164,9 +173,9 @@ export function currentTransfer(lesson: Lesson, cursor: number): Transfer | unde
       return {
         ...base,
         kind: 'result',
-        from: `tool-${call.callId}`,
+        from: `tool-${call.callId}-result`,
         to: `agent-result-${call.callId}`,
-        fromArea: 'local',
+        fromArea: 'chat',
         toArea: 'chat',
         label: call.status === 'failed' ? '返回错误' : '返回内容',
         tone: 'green',
@@ -228,35 +237,36 @@ export function activityTransfers(lesson: Lesson, cursor: number, cardId: string
         ];
   const call = state.calls.find((c) => c.callId === card.callId);
   if (call?.path) {
-    const pending = call.status === 'ready' || call.status === 'assembling';
     links.push(
       link(
         'dispatch',
         `agent-call-${call.callId}`,
-        `tool-${call.callId}`,
+        `tool-${call.callId}-dispatch`,
         'chat',
-        'local',
+        'chat',
         '调度工具',
         'purple',
       ),
-      link(
-        'execute',
-        `tool-${call.callId}`,
-        operationTarget(call, state),
-        'local',
-        'local',
-        operationLabel(call, pending),
-        'purple',
-        pending,
-      ),
     );
+    if (call.status === 'running' || call.result !== undefined)
+      links.push(
+        link(
+          'execute',
+          `tool-${call.callId}-execute`,
+          operationTarget(call, state),
+          'chat',
+          'local',
+          operationLabel(call),
+          'purple',
+        ),
+      );
     if (call.result !== undefined)
       links.push(
         link(
           'result',
-          `tool-${call.callId}`,
+          `tool-${call.callId}-result`,
           `agent-result-${call.callId}`,
-          'local',
+          'chat',
           'chat',
           call.status === 'failed' ? '返回错误' : '返回内容',
           'green',
@@ -312,15 +322,12 @@ export function visibleTransfers(
 ): NumberedTransfer[] {
   const history = transferHistory(lesson, cursor);
   const numbered = transferHistory(lesson, lesson.events.length);
-  const state = replay(lesson, cursor);
-  const cards = buildActivities(lesson, cursor);
-  const current = cards.at(-1);
-  const id =
-    selectedId ?? (state.task === 'active' && current?.kind === 'call' ? current.id : undefined);
+  const active = activeToolCall(lesson, cursor);
+  const id = selectedId ?? (active ? `server-call-${active.callId}` : undefined);
   const associated = id ? activityTransfers(lesson, cursor, id) : [];
-  const visible = history.filter((t) => t.fromArea !== 'local' && t.toArea !== 'local');
+  const visible = history.filter((t) => !isToolTransfer(t));
   for (const transfer of associated) {
-    if (transfer.fromArea !== 'local' && transfer.toArea !== 'local') continue;
+    if (!isToolTransfer(transfer)) continue;
     const match = numbered.find((t) => transferKey(t) === transferKey(transfer));
     // New files connect to their parent until creation; the call still owns its original sequence.
     const sequence =
@@ -330,3 +337,7 @@ export function visibleTransfers(
   }
   return visible;
 }
+
+// Tool connections are transient regardless of the panel that renders the tool.
+export const isToolTransfer = (transfer: Transfer) =>
+  transfer.kind === 'dispatch' || transfer.kind === 'execute' || transfer.kind === 'result';

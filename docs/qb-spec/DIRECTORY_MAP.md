@@ -19,12 +19,12 @@
 - `src/core/agent-conversation/flow.ts`：纯事件归并与历史重建，不执行工具。
 - `src/core/agent-conversation/workbench.ts`：事件到行为卡、累计传递序号/端点及交互门槛的纯映射。
 - `src/core/agent-conversation/tools.ts`：三个教学工具的 schema、元信息、参数/路径校验及模拟结果；不访问真实文件。
-- `src/features/agent-conversation/ToolWorkbench.tsx`：候选工具与固定执行位、工具提升动画、历史调用视图；不执行文件操作。
+- `src/features/agent-conversation/ToolWorkbench.tsx`：Agent 底部水平执行/候选工具区、工具调度动画与历史调用视图；由 AgentChat 组合，不执行文件操作。
 - `src/features/agent-conversation/motionTiming.ts`：教学焦点/绘入/主要步骤停留时间，供视图与事件推进定时器共用。
 - `src/features/agent-conversation/ContentReveal.tsx`：共享内容渐显、逐行呈现、实际高度展开与底部跟随；减少动态效果立即显示，历史查看不重播。
 - `src/features/agent-conversation/RegionFocus.tsx`：连线抵达后的接收区域覆盖框滑动与目标区块高亮，不参与执行或窗口布局。
 - `src/features/agent-conversation/FlowConnections.tsx`：SVG 连线与可见 DOM 锚点测量，不承载协议规则。
-- `src/features/agent-conversation/flowGeometry.ts`：视图使用的平滑曲线与沿线标签避让计算，不依赖 DOM 或协议状态。
+- `src/features/agent-conversation/flowGeometry.ts`：视图使用的跨窗口曲线、Agent 内部直角折线、工作区外缘路径及标签避让计算，不依赖 DOM 或协议状态。
 - `src/core/sampling.ts`：候选、参数、分布与抽样契约。
 - `src/features/token/ContextSentence.tsx`：上下文展示与教学分支换行占位。
 - `docs/qb-spec/context/UI_STYLE_SPEC.md`：动态布局、可读字体尺度与验证规范。

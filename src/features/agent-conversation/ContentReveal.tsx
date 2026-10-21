@@ -68,17 +68,39 @@ export function ExpandContent({ children }: { children: ReactNode }) {
 
 // Following the expanding height makes old content move upward continuously.
 // Manual history browsing can stop following; an active demo can force it.
+export function scrollToFollowingContent(
+  el: HTMLElement,
+  anchor?: string,
+  automatic?: RefObject<number | null>,
+) {
+  let next = Math.max(0, el.scrollHeight - el.clientHeight);
+  const target =
+    anchor &&
+    Array.from(el.querySelectorAll<HTMLElement>('[data-flow-anchor]')).find(
+      (node) => node.dataset.flowAnchor === anchor,
+    );
+  if (target) {
+    const top = target.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop;
+    next = Math.min(next, Math.max(0, top));
+  }
+  if (Math.abs(el.scrollTop - next) < 1) return;
+  el.scrollTop = next;
+  if (automatic) automatic.current = el.scrollTop;
+}
+
 export function useFollowExpansion(
   scroll: RefObject<HTMLDivElement | null>,
   follow: RefObject<boolean>,
   enabled = true,
   force = false,
+  anchor?: string,
+  automatic?: RefObject<number | null>,
 ) {
   useLayoutEffect(() => {
     const el = scroll.current;
     if (!el || !enabled) return;
     const update = () => {
-      if (follow.current || force) el.scrollTop = el.scrollHeight;
+      if (follow.current || force) scrollToFollowingContent(el, anchor, automatic);
     };
     const observer = new ResizeObserver(update);
     observer.observe(el);
@@ -105,5 +127,5 @@ export function useFollowExpansion(
       observer.disconnect();
       mutations.disconnect();
     };
-  }, [scroll, follow, enabled, force]);
+  }, [scroll, follow, enabled, force, anchor, automatic]);
 }

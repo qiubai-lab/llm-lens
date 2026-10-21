@@ -2,6 +2,7 @@
 export const flowTiming = {
   focus: 0.55,
   draw: 1.15,
+  exit: 0.9,
   lineArrival: 1.15,
   arrival: 1.7,
   stepHoldMs: 2100,
@@ -10,4 +11,5 @@ export const flowTiming = {
   readingHoldMs: 2200,
   resultHoldMs: 4700,
   thinkingHoldMs: 1800,
+  writeLineMs: 320,
 } as const;

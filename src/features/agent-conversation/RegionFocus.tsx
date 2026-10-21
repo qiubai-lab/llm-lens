@@ -51,15 +51,23 @@ export function RegionFocus({
         transfer.kind === 'execute' &&
         transfer.to.startsWith('file-')
       ) {
-        const editor = stage.querySelector('.workbench-editor');
-        if (editor && !targets.includes(editor)) targets.push(editor);
         const file = Array.from(stage.querySelectorAll('[data-file-path]')).find(
           (el) => el.getAttribute('data-file-path') === transfer.to.slice('file-'.length),
         );
         if (file) targets.push(file);
       }
-      targets.forEach((el) => el.setAttribute('data-flow-focused', transfer.tone));
-      highlighted.current = targets;
+      const blocks = [
+        ...new Set(
+          targets.map((el) => {
+            if (el.hasAttribute('data-tool-port')) return el.closest('.tool-execution') ?? el;
+            if (el.getAttribute('data-flow-anchor')?.startsWith('agent-call-'))
+              return el.closest('.agent-tool-card') ?? el;
+            return el;
+          }),
+        ),
+      ];
+      blocks.forEach((el) => el.setAttribute('data-flow-focused', transfer.tone));
+      highlighted.current = blocks;
     };
     if (reduced || inspecting || paused) {
       const frame = requestAnimationFrame(apply);

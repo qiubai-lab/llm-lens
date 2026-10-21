@@ -83,25 +83,11 @@ export function ToolWorkbench({
             <p className={`tool-output ${call.status === 'failed' ? 'tool-error' : ''}`}>
               {call.result}
             </p>
-          ) : !inspecting && gate?.callId === call.callId ? (
-            <button
-              className="tool-run"
-              onClick={(e) => {
-                e.currentTarget
-                  .closest<HTMLElement>('.tool-execution')
-                  ?.focus({ preventScroll: true });
-                onExecute();
-              }}
-              disabled={frozen}
-            >
-              <Play size={12} />
-              {tool.execute}
-            </button>
-          ) : (
+          ) : call.status !== 'ready' || inspecting ? (
             <p className="tool-waiting">
               {call.status === 'running' ? '等待工具结果' : '等待执行'}
             </p>
-          )}
+          ) : null}
         </>
       )}
     </motion.div>
@@ -110,7 +96,7 @@ export function ToolWorkbench({
     <section
       className="workbench-tools"
       aria-label="模拟工具区"
-      data-flow-anchor="local-port"
+      data-flow-anchor="agent-tools-port"
       data-motion-paused={frozen || reduced || inspecting}
     >
       <header className="tools-title">
@@ -127,14 +113,58 @@ export function ToolWorkbench({
             data-call-id={active && call ? call.callId : undefined}
             tabIndex={-1}
           >
-            <div className="tool-zone-label">
+            <div className="tool-zone-label tool-execution-title">
               <span>执行区</span>
-              {active && call && <span>{call.callId}</span>}
+              {active && call && !inspecting && gate?.callId === call.callId && (
+                <button
+                  className="tool-run"
+                  onClick={(e) => {
+                    e.currentTarget
+                      .closest<HTMLElement>('.tool-execution')
+                      ?.focus({ preventScroll: true });
+                    onExecute();
+                  }}
+                  disabled={frozen}
+                >
+                  <Play size={12} />
+                  {active.execute}
+                </button>
+              )}
+              {active && call && <span className="tool-call-id">{call.callId}</span>}
             </div>
-            {active ? (
-              card(active, true)
-            ) : (
-              <p className="tool-idle">{inspecting ? '此 step 没有工具操作' : '等待 Agent 调用'}</p>
+            <div className="tool-execution-content">
+              {active ? (
+                card(active, true)
+              ) : (
+                <p className="tool-idle">
+                  {inspecting ? '此 step 没有工具操作' : '等待 Agent 调用'}
+                </p>
+              )}
+            </div>
+            {active && call && (
+              <>
+                <span
+                  className="tool-port tool-port-dispatch"
+                  data-tool-port="dispatch"
+                  data-flow-anchor={`tool-${call.callId}-dispatch`}
+                  title="接收 Agent 调度"
+                  aria-hidden="true"
+                />
+                <span
+                  className="tool-port tool-port-execute"
+                  data-tool-port="execute"
+                  data-flow-anchor={`tool-${call.callId}-execute`}
+                  title="执行文件操作"
+                  aria-hidden="true"
+                />
+                <span
+                  className="tool-port tool-port-result"
+                  data-tool-port="result"
+                  data-flow-anchor={`tool-${call.callId}-result`}
+                  title="回传工具结果"
+                  aria-hidden="true"
+                />
+              </>
             )}
           </section>
           <section className="tool-candidates" aria-label="候选工具">

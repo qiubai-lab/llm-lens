@@ -12,33 +12,33 @@ import {
 import { projectPath, skillPath, type Branch } from '../../core/agent-conversation/fixtures';
 import type { Call, FlowState } from '../../core/agent-conversation/flow';
 import { summaryPath, toolStatus } from '../../core/agent-conversation/tools';
-import { ToolWorkbench } from './ToolWorkbench';
+import { useCalmMotion } from '../../components/MotionPreference';
+import { flowTiming } from './motionTiming';
 
 export function LocalWorkbench({
   state,
-  gate,
-  onExecute,
   branch,
   onBranch,
   canConfigure,
   inspectionPath,
-  toolCall,
   inspecting,
-  frozen,
-  stopped,
+  previewPath,
+  writeCall,
+  writeReady,
+  motionPaused,
 }: {
   state: FlowState;
-  gate?: Call;
-  onExecute: () => void;
   branch: Branch;
   onBranch?: (b: Branch) => void;
   canConfigure: boolean;
   inspectionPath?: string;
-  toolCall?: Call;
   inspecting: boolean;
-  frozen: boolean;
-  stopped: boolean;
+  previewPath?: string;
+  writeCall?: Call;
+  writeReady: boolean;
+  motionPaused: boolean;
 }) {
+  const reduced = useCalmMotion();
   const [selected, setSelected] = useState(projectPath);
   const [notes, setNotes] = useState(true);
   const [skills, setSkills] = useState(false);
@@ -69,6 +69,51 @@ export function LocalWorkbench({
     missing && selected === projectPath
       ? 'FILE_NOT_FOUND\n\nnotes/project.md 不存在。'
       : (state.files[selected] ?? '尚未创建此文件。');
+  const lines = content.trimEnd().split('\n');
+  const writing = writeCall?.path === selected;
+  const [written, setWritten] = useState<{ callId: string; count: number }>();
+  const writtenCount =
+    reduced || inspecting
+      ? lines.length
+      : written?.callId === writeCall?.callId
+        ? (written?.count ?? 0)
+        : 0;
+  useEffect(() => {
+    if (!writeCall) setWritten(undefined);
+  }, [writeCall?.callId]);
+  useEffect(() => {
+    if (
+      !writing ||
+      !writeCall ||
+      !writeReady ||
+      motionPaused ||
+      reduced ||
+      inspecting ||
+      writtenCount >= lines.length
+    )
+      return;
+    const timer = window.setTimeout(
+      () => setWritten({ callId: writeCall.callId, count: writtenCount + 1 }),
+      flowTiming.writeLineMs,
+    );
+    return () => window.clearTimeout(timer);
+  }, [
+    writing,
+    writeCall?.callId,
+    writeReady,
+    motionPaused,
+    reduced,
+    inspecting,
+    writtenCount,
+    lines.length,
+  ]);
+  const writePhase = writing
+    ? writtenCount >= lines.length
+      ? 'complete'
+      : writeReady
+        ? 'writing'
+        : 'created'
+    : undefined;
   const file = (path: string) => (
     <button
       key={path}
@@ -82,8 +127,12 @@ export function LocalWorkbench({
       <FileText size={13} />
       <span>{path.split('/').at(-1)}</span>
       <span className="file-status-slot">
-        {state.calls.some((c) => c.path === path && c.status === 'succeeded') && (
-          <Check size={12} />
+        {writeCall?.path === path && writing && writePhase !== 'complete' ? (
+          <small>新建</small>
+        ) : (
+          state.calls.some((c) => c.path === path && c.status === 'succeeded') && (
+            <Check size={12} />
+          )
         )}
       </span>
     </button>
@@ -102,7 +151,15 @@ export function LocalWorkbench({
           <Folder size={13} />
           <span>llm-lens</span>
           <span className="local-preview-status">
-            {inspecting ? '历史快照' : current ? toolStatus(current) : '本地预览'}
+            {inspecting
+              ? '历史快照'
+              : writePhase === 'created'
+                ? '文件已创建'
+                : writePhase === 'writing'
+                  ? '写入中'
+                  : current
+                    ? toolStatus(current)
+                    : '本地预览'}
           </span>
         </div>
         <div className="workbench-files">
@@ -144,34 +201,40 @@ export function LocalWorkbench({
               </div>
             )}
           </nav>
-          <section className="workbench-editor" aria-label="文件预览">
-            <div className="workbench-editor-tab">
+          <section
+            className="workbench-editor"
+            aria-label="文件预览"
+            data-preview-active={previewPath === selected}
+            data-motion-paused={motionPaused || reduced}
+            data-write-phase={writePhase}
+            data-written-lines={writing ? writtenCount : undefined}
+          >
+            <div className="workbench-editor-tab" data-flow-anchor={`preview-${selected}`}>
               <FileText size={12} />
               <span>{selected.split('/').at(-1)}</span>
               <span className="editor-read-dot" data-read={current?.status === 'succeeded'} />
             </div>
             <div className="workbench-editor-lines">
-              {content
-                .trimEnd()
-                .split('\n')
-                .map((line, i) => (
-                  <div className={line.startsWith('#') ? 'file-heading' : ''} key={i}>
-                    <span aria-hidden="true">{i + 1}</span>
-                    <code>{line || ' '}</code>
-                  </div>
-                ))}
+              {writing && !inspecting && (
+                <p className="workbench-write-status" role="status">
+                  {writePhase === 'created'
+                    ? '文件已创建 · 等待写入'
+                    : `${writePhase === 'complete' ? '已写入' : '正在写入'} · ${writtenCount}/${lines.length} 行`}
+                </p>
+              )}
+              {lines.slice(0, writing ? writtenCount : lines.length).map((line, i) => (
+                <div
+                  className={`${line.startsWith('#') ? 'file-heading' : ''} ${writing && !reduced && !inspecting ? 'workbench-written-line' : ''}`}
+                  key={i}
+                >
+                  <span aria-hidden="true">{i + 1}</span>
+                  <code>{line || ' '}</code>
+                </div>
+              ))}
             </div>
           </section>
         </div>
       </div>
-      <ToolWorkbench
-        call={toolCall}
-        inspecting={inspecting}
-        gate={gate}
-        onExecute={onExecute}
-        frozen={frozen}
-        stopped={stopped}
-      />
       <footer className="workbench-local-footer">
         <span>UTF-8 · 预设文件</span>
         {onBranch && (

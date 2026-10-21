@@ -18,11 +18,16 @@ import { motion } from 'motion/react';
 import type { Call, FlowState } from '../../core/agent-conversation/flow';
 import { RawData } from './RawData';
 import { useCalmMotion } from '../../components/MotionPreference';
-import { contentEntrance, ExpandContent, RevealText, useFollowExpansion } from './ContentReveal';
+import {
+  contentEntrance,
+  ExpandContent,
+  RevealText,
+  useFollowExpansion,
+  scrollToFollowingContent,
+} from './ContentReveal';
 import { flowTiming } from './motionTiming';
-import type { Task } from '../../core/agent-conversation/fixtures';
 import { toolDefinitions, toolInfo, toolStatus } from '../../core/agent-conversation/tools';
-import { ToolIcon } from './ToolWorkbench';
+import { ToolIcon, ToolWorkbench } from './ToolWorkbench';
 export function AgentChat({
   state,
   question,
@@ -38,8 +43,8 @@ export function AgentChat({
   onReset,
   interrupt,
   onInterrupt,
-  task,
-  onTask,
+  toolCall,
+  inspecting,
 }: {
   state: FlowState;
   question: string;
@@ -55,24 +60,27 @@ export function AgentChat({
   onReset: () => void;
   interrupt?: boolean;
   onInterrupt?: () => void;
-  task: Task;
-  onTask: (task: Task) => void;
+  toolCall?: Call;
+  inspecting: boolean;
 }) {
   const reduced = useCalmMotion();
   const availableTools = state.requests.at(-1)?.body.tools ?? toolDefinitions;
   const scroll = useRef<HTMLDivElement>(null);
   const follow = useRef(true);
-  useFollowExpansion(scroll, follow);
+  const automaticScroll = useRef<number | null>(null);
+  const followAnchor =
+    !inspecting && toolCall?.result !== undefined ? `agent-call-${toolCall.callId}` : undefined;
+  useFollowExpansion(scroll, follow, true, false, followAnchor, automaticScroll);
   const [newContent, setNewContent] = useState(false);
   useEffect(() => {
     const el = scroll.current;
     if (!el) return;
     if (!state.user) follow.current = true;
     if (follow.current) {
-      el.scrollTop = el.scrollHeight;
+      scrollToFollowingContent(el, followAnchor, automaticScroll);
       setNewContent(false);
     } else setNewContent(true);
-  }, [state]);
+  }, [state, followAnchor]);
   const sendLabel = busy
     ? '停止任务'
     : !ended && !cancelled && state.user
@@ -114,10 +122,19 @@ export function AgentChat({
       <div
         className="agent-chat-scroll"
         ref={scroll}
+        data-follow-anchor={followAnchor}
         onScroll={() => {
           const el = scroll.current!;
+          if (
+            automaticScroll.current !== null &&
+            Math.abs(el.scrollTop - automaticScroll.current) < 1
+          ) {
+            automaticScroll.current = null;
+            return;
+          }
+          automaticScroll.current = null;
           follow.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
-          if (follow.current) setNewContent(false);
+          setNewContent(!follow.current);
         }}
       >
         {!state.user && (
@@ -148,14 +165,13 @@ export function AgentChat({
             <motion.article
               className={`agent-tool-card ${call.status === 'running' ? 'tool-active' : ''}`}
               key={call.id}
-              data-flow-anchor={`agent-call-${call.callId}`}
               data-motion-paused={reduced || !busy || suspended || cancelled}
               initial={{ opacity: reduced ? 1 : 0, y: reduced ? 0 : 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: reduced ? 0 : flowTiming.content }}
             >
               <details>
-                <summary>
+                <summary data-flow-anchor={`agent-call-${call.callId}`}>
                   <span className="agent-tool-icon">
                     {call.status === 'running' ? (
                       <LoaderCircle className="agent-tool-spinner" size={15} />
@@ -272,15 +288,45 @@ export function AgentChat({
               <div className="assistant-byline">
                 <Bot size={15} />
                 <span>Lens Agent</span>
-                {state.task === 'finished' && <Check size={13} />}
+                <span className="assistant-answer-status">
+                  {state.response === 'completed' ? (
+                    <>
+                      <Check size={13} /> 已完成
+                    </>
+                  ) : (
+                    '正在回答'
+                  )}
+                </span>
               </div>
-              <motion.p {...contentEntrance(reduced, flowTiming.arrival)}>
-                {state.answer}
+              <motion.div
+                className="assistant-answer-content"
+                {...contentEntrance(reduced, flowTiming.arrival)}
+              >
+                {state.answer
+                  .split('\n')
+                  .filter(Boolean)
+                  .map((line, i) => {
+                    const numbered = line.match(/^(\d+)\.\s*(.*)$/);
+                    const saved = line.match(/^已保存到\s+(.+?)。?$/);
+                    return saved ? (
+                      <div className="assistant-saved" key={i}>
+                        <Check size={14} />
+                        <span>
+                          已保存到 <code>{saved[1]}</code>
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="assistant-answer-line" key={i}>
+                        {numbered && <span className="assistant-line-number">{numbered[1]}</span>}
+                        <p>{numbered ? numbered[2] : line}</p>
+                      </div>
+                    );
+                  })}
                 <span
                   className="agent-text-cursor"
                   hidden={state.response !== 'streaming' || cancelled}
                 />
-              </motion.p>
+              </motion.div>
             </motion.div>
           </ExpandContent>
         )}
@@ -304,11 +350,11 @@ export function AgentChat({
           <button
             onClick={() => {
               follow.current = true;
-              scroll.current!.scrollTop = scroll.current!.scrollHeight;
+              scrollToFollowingContent(scroll.current!, followAnchor, automaticScroll);
               setNewContent(false);
             }}
           >
-            <ArrowDown size={12} /> 回到最新消息
+            <ArrowDown size={12} /> 回到当前流程
           </button>
         )}
       </div>
@@ -320,33 +366,33 @@ export function AgentChat({
           if (!busy) onSend();
         }}
       >
-        <label className="composer-task">
-          <span>预设任务</span>
-          <select
-            aria-label="选择预设任务"
-            value={task}
-            disabled={busy || suspended}
-            onChange={(e) => onTask(e.target.value as Task)}
+        <div className="composer-input-row">
+          <label htmlFor="agent-question" className="sr-only">
+            当前场景问题
+          </label>
+          <textarea
+            rows={2}
+            id="agent-question"
+            value={question}
+            title={question}
+            readOnly
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && !busy) {
+                e.preventDefault();
+                onSend();
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="agent-send"
+            disabled={suspended}
+            onClick={busy ? onStop : onSend}
+            aria-label={sendLabel}
           >
-            <option value="summary">读取并总结</option>
-            <option value="save-summary">整理并保存</option>
-          </select>
-        </label>
-        <label htmlFor="agent-question" className="sr-only">
-          当前场景问题
-        </label>
-        <textarea
-          id="agent-question"
-          value={question}
-          readOnly
-          rows={2}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && !busy) {
-              e.preventDefault();
-              onSend();
-            }
-          }}
-        />
+            {busy ? <Square size={15} /> : <ArrowUp size={17} />}
+          </button>
+        </div>
         <div className="composer-toolbar">
           <span className="composer-context">
             <span className="composer-model">
@@ -368,18 +414,17 @@ export function AgentChat({
                 模拟中断
               </button>
             )}
-            <button
-              type="button"
-              className="agent-send"
-              disabled={suspended}
-              onClick={busy ? onStop : onSend}
-              aria-label={sendLabel}
-            >
-              {busy ? <Square size={15} /> : <ArrowUp size={17} />}
-            </button>
           </div>
         </div>
       </form>
+      <ToolWorkbench
+        call={toolCall}
+        inspecting={inspecting}
+        gate={cancelled || suspended ? undefined : gate}
+        onExecute={onExecute}
+        frozen={suspended || cancelled || !busy}
+        stopped={cancelled}
+      />
     </section>
   );
 }

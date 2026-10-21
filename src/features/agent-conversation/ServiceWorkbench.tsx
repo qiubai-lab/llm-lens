@@ -1,14 +1,16 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowDownToLine, Braces, Check, ChevronRight, Server, Sparkles, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import type { Activity } from '../../core/agent-conversation/workbench';
 import * as Dialog from '@radix-ui/react-dialog';
 import type { Item } from '../../core/agent-conversation/fixtures';
 import type { FlowState } from '../../core/agent-conversation/flow';
-import { RawData } from './RawData';
+import { JsonData } from './RawData';
 import { useCalmMotion } from '../../components/MotionPreference';
 import { ExpandContent, RevealText, useFollowExpansion } from './ContentReveal';
 import { flowTiming } from './motionTiming';
+import { toolInfo } from '../../core/agent-conversation/tools';
+import { ToolIcon } from './ToolWorkbench';
 export function ServiceWorkbench({
   activities,
   status,
@@ -197,7 +199,8 @@ export function ServiceWorkbench({
               <div>
                 <Dialog.Title>{detail?.title}</Dialog.Title>
                 <Dialog.Description>
-                  请求 {detail?.round} · {detail?.status}
+                  <span>请求 {detail?.round}</span>
+                  <span className="activity-status">{detail?.status}</span>
                 </Dialog.Description>
               </div>
               <Dialog.Close className="icon-button" aria-label="关闭详情">
@@ -226,11 +229,15 @@ export function ServiceWorkbench({
 
 function ActivityDetail({ card, state }: { card: Activity; state: FlowState }) {
   const [raw, setRaw] = useState(false);
+  const body = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (body.current) body.current.scrollTop = 0;
+  }, [raw]);
   const call = state.calls.find((c) => c.callId === card.callId);
   const request = state.requests.find((r) => r.round === card.round);
   return (
     <>
-      <div className="activity-detail-tabs">
+      <div className="activity-detail-tabs" aria-label="详情显示方式">
         <button aria-pressed={!raw} onClick={() => setRaw(false)}>
           内容
         </button>
@@ -238,101 +245,198 @@ function ActivityDetail({ card, state }: { card: Activity; state: FlowState }) {
           原始数据
         </button>
       </div>
-      <div className="activity-detail-body">
-        {raw ? (
-          <RawData value={card.detail} />
-        ) : card.kind === 'call' ? (
-          <>
-            <section>
-              <h3>工具</h3>
-              <code>
-                {call?.name} · {card.callId}
-              </code>
-            </section>
-            <section>
-              <h3>参数</h3>
-              <pre>
-                {call?.input
-                  ? JSON.stringify(call.input, null, 2)
-                  : call?.arguments || '参数生成中…'}
-              </pre>
-            </section>
-            <section>
-              <h3>
-                本地结果 ·{' '}
-                {call?.status === 'ready'
-                  ? '等待执行'
-                  : call?.status === 'failed'
-                    ? '执行失败'
-                    : call?.result !== undefined
-                      ? '已返回'
-                      : '尚未返回'}
-              </h3>
-              <pre>{call?.result ?? '尚无工具结果'}</pre>
-            </section>
-          </>
-        ) : card.kind === 'answer' ? (
-          <>
-            <section>
-              <h3>回答内容</h3>
-              <p className="activity-answer">{card.content || '等待内容…'}</p>
-            </section>
-            <section>
-              <h3>流事件</h3>
-              {(card.detail as Item[]).map((event, i) => (
-                <div className="activity-input" key={i}>
-                  <span>{String(event.type)}</span>
-                  <pre>{String(event.delta ?? event.text ?? '')}</pre>
-                </div>
-              ))}
-            </section>
-          </>
-        ) : (
-          <>
-            <section>
-              <h3>指令</h3>
-              <p>{request?.body.instructions}</p>
-            </section>
-            <section>
-              <h3>输入</h3>
-              {request?.body.input.map((item, i) => (
-                <div className="activity-input" key={i}>
-                  <span>
-                    {item.type === 'function_call_output'
-                      ? `工具结果 · ${item.call_id}`
-                      : item.type === 'function_call'
-                        ? `工具调用 · ${item.call_id}`
-                        : String(item.role ?? 'message')}
-                  </span>
+      <div className="activity-detail-body" data-raw={raw} ref={body}>
+        <div className="activity-detail-formatted" aria-hidden={raw} inert={raw}>
+          {card.kind === 'call' ? (
+            <div className="activity-detail-columns">
+              <div className="activity-detail-column">
+                <section className="activity-section">
+                  <h3>
+                    本地结果{' '}
+                    <span
+                      className={`activity-status ${call?.status === 'failed' ? 'activity-status-error' : ''}`}
+                    >
+                      {call?.status === 'ready'
+                        ? '等待执行'
+                        : call?.status === 'failed'
+                          ? '执行失败'
+                          : call?.result !== undefined
+                            ? '已返回'
+                            : '尚未返回'}
+                    </span>
+                  </h3>
+                  <pre>{formatDetailValue(call?.result ?? '尚无工具结果')}</pre>
+                </section>
+              </div>
+              <aside
+                className="activity-detail-column activity-detail-sidebar"
+                aria-label="工具与参数"
+              >
+                <section className="activity-section">
+                  <h3>工具</h3>
+                  <dl className="activity-metadata">
+                    <div>
+                      <dt>函数</dt>
+                      <dd>
+                        <code>{call?.name ?? card.toolName}</code>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>调用 ID</dt>
+                      <dd>
+                        <code>{card.callId}</code>
+                      </dd>
+                    </div>
+                  </dl>
+                </section>
+                <section className="activity-section">
+                  <h3>参数</h3>
                   <pre>
-                    {item.type === 'function_call_output'
-                      ? String(item.output)
-                      : item.type === 'function_call'
-                        ? `${item.name}(${item.arguments})`
-                        : String(item.content ?? '')}
+                    {call?.input
+                      ? JSON.stringify(call.input, null, 2)
+                      : call?.arguments || '参数生成中…'}
                   </pre>
-                </div>
-              ))}
-            </section>
-            <section>
-              <h3>可用工具</h3>
-              {request?.body.tools.map((tool, i) => (
-                <div className="activity-input" key={i}>
-                  <code>{String(tool.name)}</code>
-                  <p>{String(tool.description)}</p>
-                  <span>
-                    参数：
-                    {Object.keys(
-                      (tool.parameters as { properties?: object })?.properties ?? {},
-                    ).join('、')}
-                  </span>
-                </div>
-              ))}
-            </section>
-          </>
+                </section>
+              </aside>
+            </div>
+          ) : card.kind === 'answer' ? (
+            <div className="activity-detail-columns">
+              <div className="activity-detail-column">
+                <section className="activity-section">
+                  <h3>回答内容</h3>
+                  <p className="activity-answer activity-copy">{card.content || '等待内容…'}</p>
+                </section>
+              </div>
+              <aside
+                className="activity-detail-column activity-detail-sidebar"
+                aria-label="响应流事件"
+              >
+                <section className="activity-section">
+                  <h3>
+                    流事件{' '}
+                    <span className="activity-count">{(card.detail as Item[]).length} 项</span>
+                  </h3>
+                  {(card.detail as Item[]).map((event, i) => (
+                    <div className="activity-input" key={i}>
+                      <div className="activity-input-heading">
+                        <code>{String(event.type)}</code>
+                      </div>
+                      <pre>{String(event.delta ?? event.text ?? '')}</pre>
+                    </div>
+                  ))}
+                </section>
+              </aside>
+            </div>
+          ) : (
+            <div className="activity-detail-columns">
+              <div className="activity-detail-column">
+                <section className="activity-section">
+                  <h3>
+                    输入{' '}
+                    <span className="activity-count">{request?.body.input.length ?? 0} 项</span>
+                  </h3>
+                  {request?.body.input.map((item, i) => (
+                    <div className="activity-input" key={i}>
+                      <div className="activity-input-heading">
+                        <span className="activity-role" data-role={String(item.role ?? item.type)}>
+                          {item.type === 'function_call_output'
+                            ? `工具结果 · ${item.call_id}`
+                            : item.type === 'function_call'
+                              ? `工具调用 · ${item.call_id}`
+                              : String(item.role ?? 'message')}
+                        </span>
+                        {item.type === 'function_call' && <code>{String(item.name)}</code>}
+                      </div>
+                      <pre>
+                        {item.type === 'function_call_output'
+                          ? formatDetailValue(String(item.output))
+                          : item.type === 'function_call'
+                            ? formatDetailValue(String(item.arguments))
+                            : String(item.content ?? '')}
+                      </pre>
+                    </div>
+                  ))}
+                </section>
+              </div>
+              <aside
+                className="activity-detail-column activity-detail-sidebar"
+                aria-label="指令与工具"
+              >
+                <section className="activity-section">
+                  <h3>指令</h3>
+                  <p className="activity-copy">
+                    <DetailText text={request?.body.instructions ?? ''} />
+                  </p>
+                </section>
+                <section className="activity-section">
+                  <h3>
+                    可用工具{' '}
+                    <span className="activity-count">{request?.body.tools.length ?? 0} 个</span>
+                  </h3>
+                  <ul className="activity-tools">
+                    {request?.body.tools.map((tool, i) => (
+                      <DetailTool key={i} tool={tool} />
+                    ))}
+                  </ul>
+                </section>
+              </aside>
+            </div>
+          )}
+        </div>
+        {raw && (
+          <div className="activity-detail-raw">
+            <JsonData value={card.detail} />
+          </div>
         )}
       </div>
     </>
+  );
+}
+
+function DetailText({ text }: { text: string }) {
+  return text
+    .split(
+      /(\b(?:read_file|write_file|list_directory|project-summary)\b|(?:notes|skills)\/[\w./-]+)/g,
+    )
+    .map((part, i) => (i % 2 ? <code key={i}>{part}</code> : part));
+}
+
+function formatDetailValue(value: string) {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (parsed && typeof parsed === 'object') return JSON.stringify(parsed, null, 2);
+  } catch {
+    /* Partial arguments and plain text stay readable as received. */
+  }
+  return value;
+}
+
+function DetailTool({ tool }: { tool: Item }) {
+  const name = String(tool.name);
+  const schema = tool.parameters as
+    { properties?: Record<string, { type?: string }>; required?: string[] } | undefined;
+  return (
+    <li>
+      <div className="activity-tool-info">
+        <div className="activity-tool-name">
+          <ToolIcon name={name} />
+          <code>{name}</code>
+          <span>{toolInfo(name)?.label}</span>
+        </div>
+        <p>
+          <DetailText text={String(tool.description)} />
+        </p>
+      </div>
+      <div className="activity-tool-parameters" aria-label={`${name} 参数`}>
+        {Object.entries(schema?.properties ?? {}).map(([key, property]) => (
+          <span className="activity-parameter" key={key}>
+            <code>{key}</code>
+            <span>{property.type ?? 'unknown'}</span>
+            {schema?.required?.includes(key) && <span className="activity-required">必填</span>}
+          </span>
+        ))}
+      </div>
+    </li>
   );
 }
 

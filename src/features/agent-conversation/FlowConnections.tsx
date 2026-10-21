@@ -3,7 +3,15 @@ import { flowTiming } from './motionTiming';
 import { motion } from 'motion/react';
 import { ReducedMotionContext } from '../../components/MotionPreference';
 import type { Transfer } from '../../core/agent-conversation/workbench';
-import { flowCurve, placeFlowLabels, type FlowLabel, type Point } from './flowGeometry';
+import {
+  flowCurve,
+  elbowRoute,
+  toolRails,
+  workspaceRoute,
+  placeFlowLabels,
+  type FlowLabel,
+  type Point,
+} from './flowGeometry';
 
 type Geometry = {
   d: string;
@@ -33,6 +41,10 @@ export function FlowConnections({
   sequence,
   emphasized = true,
   reveal = true,
+  retiring = false,
+  immediate = false,
+  onRetired,
+  onArrived,
 }: {
   transfer?: Transfer;
   active: boolean;
@@ -41,16 +53,26 @@ export function FlowConnections({
   sequence?: number;
   emphasized?: boolean;
   reveal?: boolean;
+  retiring?: boolean;
+  immediate?: boolean;
+  onRetired?: () => void;
+  onArrived?: () => void;
 }) {
   const label = `${sequence ? String(sequence).padStart(2, '0') + ' · ' : ''}${transfer?.label ?? ''}`;
   const markerId = useId().replace(/:/g, '');
   const layer = useRef<SVGSVGElement>(null);
+  const presentation = useRef<HTMLDivElement>(null);
   const labelMeasure = useRef<HTMLSpanElement>(null);
   const reduced = useContext(ReducedMotionContext);
+  const present = !retiring;
+  const immediateExit = reduced || immediate;
   const [visible, setVisible] = useState(false);
   const [geometry, setGeometry] = useState<Geometry>();
+  const [drawn, setDrawn] = useState(false);
   useLayoutEffect(() => {
-    const stage = layer.current?.parentElement;
+    // An exiting connection keeps its last geometry, even after its ports are replaced.
+    if (!present) return;
+    const stage = layer.current?.closest<HTMLElement>('.agent-stage');
     if (!stage || !transfer) {
       setGeometry(undefined);
       setVisible(false);
@@ -68,16 +90,9 @@ export function FlowConnections({
       );
     const measure = () => {
       const root = stage.getBoundingClientRect();
-      const get = (name: string, area: Transfer['fromArea']) => {
-        const el = find(name),
-          fallback = find(`${area}-port`);
-        // Only local tools have a fallback port. Chat and server links must
-        // point to visible content, rather than collecting at a pane edge.
-        const fallbackRect = () =>
-          area === 'local' && !(transfer.fromArea === 'local' && transfer.toArea === 'local')
-            ? fallback?.getBoundingClientRect()
-            : undefined;
-        if (!el) return fallbackRect();
+      const get = (name: string) => {
+        const el = find(name);
+        if (!el) return;
         const rect = el.getBoundingClientRect();
         let top = rect.top,
           bottom = rect.bottom,
@@ -97,11 +112,21 @@ export function FlowConnections({
           }
           parent = parent.parentElement;
         }
-        if (bottom <= top || right <= left) return fallbackRect();
-        return { top, bottom, left, right, width: right - left, height: bottom - top };
+        if (bottom <= top || right <= left) return;
+        return {
+          top,
+          bottom,
+          left,
+          right,
+          width: right - left,
+          height: bottom - top,
+          centerX: rect.left + rect.width / 2,
+          centerY: rect.top + rect.height / 2,
+          port: el.hasAttribute('data-tool-port'),
+        };
       };
-      const a = get(transfer.from, transfer.fromArea),
-        b = get(transfer.to, transfer.toArea);
+      const a = get(transfer.from),
+        b = get(transfer.to);
       if (!a || !b) {
         // Keep mounted geometry so restoring a scrolled item does not replay
         // its drawing animation or change its place in the history.
@@ -110,39 +135,31 @@ export function FlowConnections({
         return;
       }
       setVisible(true);
-      if (transfer.fromArea === 'local' && transfer.toArea === 'local') {
-        removeLabel();
-        const local = stage.querySelector('.workbench-local')!.getBoundingClientRect();
-        const tools = stage.querySelector('.workbench-tools')!.getBoundingClientRect();
-        const from = { x: a.right - root.left, y: a.top - root.top + 36 };
-        const to = { x: b.right - root.left, y: b.top - root.top + b.height / 2 };
-        // On stacked narrow layouts, use the window edge so the line cannot cross editor text.
-        const rail = window.innerWidth < 760 ? local.right - root.left - 7 : to.x + 10;
-        const gapY = tools.top - root.top - 16;
-        const d = `M ${from.x} ${from.y} Q ${from.x + 8} ${from.y}, ${from.x + 8} ${from.y - 8} L ${from.x + 8} ${gapY + 6} Q ${from.x + 8} ${gapY}, ${from.x + 2} ${gapY} L ${rail + 6} ${gapY} Q ${rail} ${gapY}, ${rail} ${gapY - 6} L ${rail} ${to.y + 6} Q ${rail} ${to.y}, ${rail - 6} ${to.y} L ${to.x} ${to.y}`;
-        const measured = labelMeasure.current?.getBoundingClientRect();
-        const width = Math.max(76, (measured?.width ?? 56) + 20);
-        const height = Math.max(26, (measured?.height ?? 18) + 8);
-        setGeometry({
-          d,
-          from,
-          to,
-          width,
-          height,
-          x: Math.min(local.right - root.left - width / 2 - 12, (rail + from.x) / 2),
-          y: gapY,
-        });
-        return;
-      }
       const vertical = window.innerWidth < 1180;
+      const internalChat = transfer.fromArea === 'chat' && transfer.toArea === 'chat';
+      const internalLocal = transfer.kind === 'content';
       const forward = vertical ? a.top < b.top : a.left < b.left;
-      const from = vertical
-        ? { x: a.left - root.left, y: a.top - root.top + a.height / 2 }
-        : { x: (forward ? a.right : a.left) - root.left, y: a.top - root.top + a.height / 2 };
-      const to = vertical
-        ? { x: b.left - root.left, y: b.top - root.top + b.height / 2 }
-        : { x: (forward ? b.left : b.right) - root.left, y: b.top - root.top + b.height / 2 };
-      const local = transfer.fromArea === 'local' || transfer.toArea === 'local';
+      const from = a.port
+        ? { x: a.centerX - root.left, y: a.centerY - root.top }
+        : vertical
+          ? { x: a.left - root.left, y: a.top - root.top + a.height / 2 }
+          : {
+              x: (internalChat || internalLocal ? a.left : forward ? a.right : a.left) - root.left,
+              y: a.top - root.top + a.height / 2,
+            };
+      const to = b.port
+        ? { x: b.centerX - root.left, y: b.centerY - root.top }
+        : internalLocal
+          ? { x: b.left - root.left + 18, y: b.top - root.top + b.height / 2 }
+          : transfer.kind === 'execute'
+            ? { x: b.right - root.left, y: b.top - root.top + b.height / 2 }
+            : vertical
+              ? { x: b.left - root.left, y: b.top - root.top + b.height / 2 }
+              : {
+                  x: (internalChat ? b.left : forward ? b.left : b.right) - root.left,
+                  y: b.top - root.top + b.height / 2,
+                };
+      const local = internalChat || transfer.fromArea === 'local' || transfer.toArea === 'local';
       const chat = stage.querySelector('.agent-chat')!.getBoundingClientRect();
       const left = stage
         .querySelector(local ? '.workbench-local' : '.agent-chat')!
@@ -151,6 +168,7 @@ export function FlowConnections({
         .querySelector(local ? '.agent-chat' : '.workbench-service')!
         .getBoundingClientRect();
       const middle = (left.right + right.left) / 2 - root.left;
+      const rails = toolRails(left.right - root.left, chat.left - root.left, vertical);
       const measured = labelMeasure.current?.getBoundingClientRect();
       const width = Math.max(76, (measured?.width ?? 56) + 20),
         height = Math.max(26, (measured?.height ?? 18) + 8);
@@ -158,19 +176,41 @@ export function FlowConnections({
       const beforeGap = local
         ? chat
         : stage.querySelector('.workbench-local')!.getBoundingClientRect();
-      const y = vertical
+      let y = vertical
         ? beforeGap.bottom -
           root.top +
           parseFloat(getComputedStyle(stage).rowGap) / 2 +
           (laneIndex - (laneCount - 1) / 2) * (height + 10)
         : 48 + ((laneIndex + 0.5) * (root.height - 96)) / laneCount;
+      if (vertical && internalChat) {
+        const tools = stage.querySelector('.workbench-tools')!;
+        const top = tools.getBoundingClientRect().top - root.top;
+        const gap = parseFloat(getComputedStyle(tools).marginTop);
+        y = top - gap / 2 + (transfer.kind === 'dispatch' ? -0.5 : 0.5) * (height + 8);
+      }
       const direction = to.y > from.y ? 1 : -1;
-      const curve = flowCurve(from, to);
-      const d = vertical
-        ? `M ${from.x} ${from.y} L 14 ${from.y} Q 6 ${from.y}, 6 ${from.y + direction * 8} L 6 ${to.y - direction * 8} Q 6 ${to.y}, 14 ${to.y} L ${to.x} ${to.y}`
-        : curve.d;
+      const curve = internalLocal
+        ? elbowRoute(from, to, left.left - root.left - 14)
+        : internalChat
+          ? elbowRoute(from, to, transfer.kind === 'dispatch' ? rails.dispatch : rails.result)
+          : transfer.kind === 'execute'
+            ? workspaceRoute(from, to, rails.execute)
+            : flowCurve(from, to);
+      const d =
+        internalLocal || internalChat || transfer.kind === 'execute'
+          ? curve.d
+          : vertical
+            ? `M ${from.x} ${from.y} L 14 ${from.y} Q 6 ${from.y}, 6 ${from.y + direction * 8} L 6 ${to.y - direction * 8} Q 6 ${to.y}, 14 ${to.y} L ${to.x} ${to.y}`
+            : curve.d;
       const next = { d, x, y, from, to, width, height };
-      if (vertical) {
+      if (internalLocal) {
+        removeLabel();
+        setGeometry({
+          ...next,
+          x: left.left - root.left + width / 2 + 24,
+          y: b.top - root.top - height / 2 - 6,
+        });
+      } else if (vertical) {
         removeLabel();
         setGeometry(next);
       } else {
@@ -256,13 +296,45 @@ export function FlowConnections({
       window.removeEventListener('resize', schedule);
       removeLabel();
     };
-  }, [transfer, laneIndex, laneCount, label, markerId, sequence]);
+  }, [transfer, laneIndex, laneCount, label, markerId, sequence, present]);
   const tone = transfer?.tone ?? 'blue';
   const animate = reveal && !reduced && !transfer?.pending;
+  useLayoutEffect(() => {
+    if (present && visible && geometry && (drawn || !animate)) onArrived?.();
+  }, [present, visible, Boolean(geometry), drawn, animate, onArrived]);
   const arrive = animate ? { duration: 0.12, delay: flowTiming.lineArrival } : { duration: 0 };
   const key = `${transfer?.kind}-${transfer?.from}-${transfer?.to}-${Boolean(transfer?.pending)}`;
+  const fadeDuration = immediateExit || !reveal ? 0 : !present || !visible ? flowTiming.exit : 0.16;
+  useLayoutEffect(() => {
+    if (present) return;
+    let frame = 0;
+    const finish = () => {
+      if (
+        !fadeDuration ||
+        !presentation.current ||
+        Number(getComputedStyle(presentation.current).opacity) < 0.001
+      )
+        onRetired?.();
+      else frame = requestAnimationFrame(finish);
+    };
+    frame = requestAnimationFrame(finish);
+    return () => cancelAnimationFrame(frame);
+  }, [present, fadeDuration, onRetired]);
   return (
-    <>
+    <div
+      ref={presentation}
+      className="flow-connection-presentation"
+      data-exiting={!present}
+      data-connection-kind={transfer?.kind}
+      style={{
+        opacity: visible && present ? 1 : 0,
+        transition: `opacity ${fadeDuration}s cubic-bezier(0.45, 0, 0.55, 1)`,
+      }}
+      onTransitionEnd={(event) => {
+        if (!present && event.target === presentation.current && event.propertyName === 'opacity')
+          onRetired?.();
+      }}
+    >
       <span className="flow-label-measure" ref={labelMeasure} aria-hidden="true">
         {label}
       </span>
@@ -276,7 +348,8 @@ export function FlowConnections({
         data-from={transfer?.from}
         data-to={transfer?.to}
         data-visible={visible}
-        style={{ visibility: visible ? 'visible' : 'hidden' }}
+        data-exiting={!present}
+        style={{ visibility: geometry ? 'visible' : 'hidden' }}
       >
         <defs>
           <marker
@@ -292,10 +365,10 @@ export function FlowConnections({
           <mask
             id={`flow-reveal-${markerId}`}
             maskUnits="userSpaceOnUse"
-            x="0"
-            y="0"
-            width="100%"
-            height="100%"
+            x="-24"
+            y="-24"
+            width="120%"
+            height="120%"
             style={{ maskType: 'alpha' }}
           >
             {geometry && (
@@ -308,6 +381,7 @@ export function FlowConnections({
                 strokeWidth="12"
                 initial={{ pathLength: animate ? 0 : 1 }}
                 animate={{ pathLength: 1 }}
+                onAnimationComplete={() => setDrawn(true)}
                 transition={
                   animate ? { duration: flowTiming.draw, ease: 'linear' } : { duration: 0 }
                 }
@@ -343,7 +417,8 @@ export function FlowConnections({
         aria-hidden="true"
         data-sequence={sequence}
         data-visible={visible}
-        style={{ visibility: visible ? 'visible' : 'hidden' }}
+        data-exiting={!present}
+        style={{ visibility: geometry ? 'visible' : 'hidden' }}
       >
         {geometry && (
           <motion.g
@@ -366,10 +441,10 @@ export function FlowConnections({
         )}
       </svg>
       <span className="sr-only" role="status">
-        {visible && transfer
+        {visible && present && transfer
           ? `${transfer.fromArea === 'server' ? '模型服务' : transfer.fromArea === 'local' ? '本地工作区' : 'Agent'}：${label}`
           : ''}
       </span>
-    </>
+    </div>
   );
 }
