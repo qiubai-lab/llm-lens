@@ -230,6 +230,22 @@ export function Home({ onAbout }: { onAbout: (trigger: HTMLElement) => void }) {
           </a>
         </div>
       </section>
+      <section className="exploration-path" aria-label="模型协议探索路线">
+        <div className="path-heading">
+          <span className="tiny-label">SAME TASK, DIFFERENT ENVELOPES</span>
+          <h2>同一个问题，三种协议。</h2>
+          <p>直接对照 Chat Completions、Responses 与 Anthropic Messages 的 JSON 结构。</p>
+        </div>
+        <div className="path-items">
+          <a href="#/protocols" className="agent-path-entry">
+            <span>PROTOCOLS</span>
+            <strong>
+              打开协议对照演示 <ArrowUpRight size={17} />
+            </strong>
+            <p>完整请求与响应 JSON，点击子项定位对应字段</p>
+          </a>
+        </div>
+      </section>
       <footer className="home-footer">
         <span>
           LLM Lens <i> / </i> 把抽象的原理，变成直觉。

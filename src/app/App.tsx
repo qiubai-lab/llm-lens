@@ -32,13 +32,23 @@ const GatewayDeck = lazy(() =>
     default: module.GatewayDeck,
   })),
 );
+const ProtocolDeck = lazy(() =>
+  import('../features/protocols/ProtocolDeck').then((module) => ({ default: module.ProtocolDeck })),
+);
+import { protocolTopic } from '../core/protocols/lesson';
 import { gatewayTopic } from '../core/model-gateway/flow';
 import { agentTopic } from '../core/agent-conversation/fixtures';
 
 export function App() {
   const [route, setRoute] = useState(() => parseRoute(location.hash));
   const activeTopic =
-    route.page === 'gateway' ? gatewayTopic : route.page === 'agent' ? agentTopic : topic;
+    route.page === 'protocols'
+      ? protocolTopic
+      : route.page === 'gateway'
+        ? gatewayTopic
+        : route.page === 'agent'
+          ? agentTopic
+          : topic;
   const [about, setAbout] = useState(false);
   const aboutTrigger = useRef<HTMLElement | null>(null);
   const openAbout = (trigger: HTMLElement) => {
@@ -138,6 +148,16 @@ export function App() {
             )}
             {route.page === 'home' ? (
               <Home onAbout={openAbout} />
+            ) : route.page === 'protocols' ? (
+              <Suspense
+                fallback={
+                  <main className="deck-page" id="main-content">
+                    <p role="status">正在打开协议演示…</p>
+                  </main>
+                }
+              >
+                <ProtocolDeck suspended={directory || settingsOpen || about} />
+              </Suspense>
             ) : route.page === 'gateway' ? (
               <Suspense
                 fallback={
@@ -210,7 +230,7 @@ export function App() {
                 <a className="directory-home" href="#/" onClick={() => setDirectory(false)}>
                   <Layers size={17} /> 返回首页 <ArrowUpRight size={16} />
                 </a>
-                {[topic, agentTopic, gatewayTopic].map((entry) => (
+                {[topic, agentTopic, gatewayTopic, protocolTopic].map((entry) => (
                   <div key={entry.id}>
                     <div className="directory-topic">
                       <BookOpen size={18} />
@@ -224,7 +244,10 @@ export function App() {
                     <div className="directory-scenes">
                       {entry.scenes.map((s, i) => (
                         <a
-                          href={sceneHref(i, entry.id as 'token' | 'agent' | 'gateway')}
+                          href={sceneHref(
+                            i,
+                            entry.id as 'token' | 'agent' | 'gateway' | 'protocols',
+                          )}
                           onClick={() => setDirectory(false)}
                           key={s.short}
                           aria-current={

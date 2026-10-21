@@ -19,3 +19,9 @@ it('gateway is an independent continuous topic', () => {
   expect(parseRoute('#/gateway/')).toEqual({ page: 'gateway', scene: 0 });
   expect(parseRoute('#/gateway/1')).toEqual({ page: 'home' });
 });
+
+it('protocol comparison has a static-hosting-safe topic route', () => {
+  expect(parseRoute('#/protocols')).toEqual({ page: 'protocols', scene: 0 });
+  expect(parseRoute('#/protocols/')).toEqual({ page: 'protocols', scene: 0 });
+  expect(parseRoute('#/protocols/1')).toEqual({ page: 'home' });
+});

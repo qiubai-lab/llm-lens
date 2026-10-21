@@ -226,3 +226,9 @@ BASE_PATH=/你的仓库名 npm run verify
 当前版本使用 Vite + React，替换了早期 Astro/MDX 课程站。旧版课程列表、测验、术语页与学习进度已移除，旧多页地址不保留；此前规格保留在文档归档中，供追溯参考。
 
 </details>
+
+### 三种模型协议对照
+
+打开 `#/protocols`，分别对照 **Chat Completions / Responses / Anthropic Messages** 的完整请求与响应 JSON。点击用户输入、工具声明、工具调用、工具结果、用量等子项，三列自动定位并高亮对应字段；完整内容保留在可滚动窗口中，支持复制。
+
+模型、ID、天气和用量均为教学样例，不发起真实 API 请求。技术事实与教学边界见 [协议演示设计](docs/demos/protocols/TECHNICAL_DESIGN.md)。
