@@ -71,7 +71,7 @@ export function FocusToolbar({
         >
           <List size={18} />
           <span>目录</span>
-          {topic.id !== 'agent' && (
+          {topic.id === 'token' && (
             <small>
               {scene + 1}/{topic.scenes.length}
             </small>

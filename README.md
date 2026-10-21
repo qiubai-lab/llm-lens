@@ -12,7 +12,7 @@
 [![React](https://img.shields.io/badge/React-19-149eca?logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-[在线体验](https://qiubai-lab.github.io/llm-lens/) · [Token 演示](https://qiubai-lab.github.io/llm-lens/#/token/1) · [Agent 演示](https://qiubai-lab.github.io/llm-lens/#/agent)
+[在线体验](https://qiubai-lab.github.io/llm-lens/) · [Token 演示](https://qiubai-lab.github.io/llm-lens/#/token/1) · [Agent 演示](https://qiubai-lab.github.io/llm-lens/#/agent) · [模型网关](https://qiubai-lab.github.io/llm-lens/#/gateway)
 
 </div>
 
@@ -65,6 +65,19 @@ LLM Lens 把语言模型中的抽象概念拆成可以观察、调整和回放�
 - **回看执行历史**：选择历史行为卡，查看当次调用、静态连接和文件快照；回看不会再次执行。
 - **展开底层细节**：通过详情弹窗查看内容与原始数据，体验停止、重新发送、文件失败和流中断。
 
+### 03 · 模型网关
+
+[进入模型网关演示 →](https://qiubai-lab.github.io/llm-lens/#/gateway)
+
+沿着一次请求，观察应用、网关与上游服务之间的数据流：访问检查 → 渠道选择 → 额度预留 → 协议适配 → 增量返回 → 用量结算。
+
+- 11 个预设场景，覆盖正常请求、协议转换、故障切换、访问拒绝、限流、无渠道、额度不足、重试用尽、固定渠道与流中断。
+- 对照模型别名与上游模型，理解网关令牌和上游凭据的区别。
+- 切换教学抽样值，观察同层权重与备用优先级；账单分别展示预扣、消耗和返还。
+- 支持自动讲解、单步、暂停、历史快照与原始数据详情；所有请求、用量和价格均为教学模拟。
+
+源码依据与准确性边界见 [网关技术设计](docs/demos/model-gateway/TECHNICAL_DESIGN.md)。
+
 ### 为探索而设计
 
 石墨灰主题与专注演示舞台，让注意力留在内容上。桌面端提供侧边参数区，手机端使用参数标签切换；概念解释支持悬停、聚焦与点击。
@@ -114,6 +127,7 @@ npm run dev
 | 首页 | `#/` |
 | Token 六幕 | `#/token/1` 至 `#/token/6` |
 | Agent 工作台 | `#/agent` |
+| 模型网关工作台 | `#/gateway` |
 
 旧的 `#/agent/1` 至 `#/agent/6` 地址兼容进入完整 Agent 演示。
 
@@ -146,6 +160,7 @@ llm-lens/
 │   ├── app/                 # 首页、专注演示外壳、路由与全站浮层
 │   ├── features/
 │   │   ├── token/           # Token 六幕与参数交互
+│   │   ├── model-gateway/   # 网关工作台、渠道与账单
 │   │   └── agent-conversation/ # Agent 工作台与数据流视图
 │   ├── core/                # 纯计算、教学数据与模拟状态
 │   ├── components/          # 共享组件与动态效果偏好

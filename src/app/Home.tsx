@@ -214,6 +214,22 @@ export function Home({ onAbout }: { onAbout: (trigger: HTMLElement) => void }) {
           </a>
         </div>
       </section>
+      <section className="exploration-path" aria-label="模型网关探索路线">
+        <div className="path-heading">
+          <span className="tiny-label">BEHIND EVERY REQUEST</span>
+          <h2>一次请求，如何抵达模型？</h2>
+          <p>走进模型网关，观察访问检查、渠道选择、协议转换与用量结算。</p>
+        </div>
+        <div className="path-items">
+          <a href="#/gateway" className="agent-path-entry">
+            <span>GATEWAY</span>
+            <strong>
+              打开模型网关工作台 <ArrowUpRight size={17} />
+            </strong>
+            <p>正常请求、故障切换与流中断，沿同一条数据流探索</p>
+          </a>
+        </div>
+      </section>
       <footer className="home-footer">
         <span>
           LLM Lens <i> / </i> 把抽象的原理，变成直觉。

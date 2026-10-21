@@ -13,3 +13,9 @@ it('AC-005: Agent 深链接与非法幕次', () => {
   for (const hash of ['#/agent/0', '#/agent/7', '#/agent/NaN'])
     expect(parseRoute(hash)).toEqual({ page: 'home' });
 });
+
+it('gateway is an independent continuous topic', () => {
+  expect(parseRoute('#/gateway')).toEqual({ page: 'gateway', scene: 0 });
+  expect(parseRoute('#/gateway/')).toEqual({ page: 'gateway', scene: 0 });
+  expect(parseRoute('#/gateway/1')).toEqual({ page: 'home' });
+});

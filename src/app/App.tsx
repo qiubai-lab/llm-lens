@@ -27,11 +27,18 @@ const AgentDeck = lazy(() =>
     default: module.AgentDeck,
   })),
 );
+const GatewayDeck = lazy(() =>
+  import('../features/model-gateway/GatewayDeck').then((module) => ({
+    default: module.GatewayDeck,
+  })),
+);
+import { gatewayTopic } from '../core/model-gateway/flow';
 import { agentTopic } from '../core/agent-conversation/fixtures';
 
 export function App() {
   const [route, setRoute] = useState(() => parseRoute(location.hash));
-  const activeTopic = route.page === 'agent' ? agentTopic : topic;
+  const activeTopic =
+    route.page === 'gateway' ? gatewayTopic : route.page === 'agent' ? agentTopic : topic;
   const [about, setAbout] = useState(false);
   const aboutTrigger = useRef<HTMLElement | null>(null);
   const openAbout = (trigger: HTMLElement) => {
@@ -131,6 +138,16 @@ export function App() {
             )}
             {route.page === 'home' ? (
               <Home onAbout={openAbout} />
+            ) : route.page === 'gateway' ? (
+              <Suspense
+                fallback={
+                  <main className="deck-page" id="main-content">
+                    <p role="status">正在打开网关演示…</p>
+                  </main>
+                }
+              >
+                <GatewayDeck suspended={directory || settingsOpen || about} />
+              </Suspense>
             ) : route.page === 'agent' ? (
               <Suspense
                 fallback={
@@ -193,7 +210,7 @@ export function App() {
                 <a className="directory-home" href="#/" onClick={() => setDirectory(false)}>
                   <Layers size={17} /> 返回首页 <ArrowUpRight size={16} />
                 </a>
-                {[topic, agentTopic].map((entry) => (
+                {[topic, agentTopic, gatewayTopic].map((entry) => (
                   <div key={entry.id}>
                     <div className="directory-topic">
                       <BookOpen size={18} />
@@ -207,7 +224,7 @@ export function App() {
                     <div className="directory-scenes">
                       {entry.scenes.map((s, i) => (
                         <a
-                          href={sceneHref(i, entry.id as 'token' | 'agent')}
+                          href={sceneHref(i, entry.id as 'token' | 'agent' | 'gateway')}
                           onClick={() => setDirectory(false)}
                           key={s.short}
                           aria-current={
